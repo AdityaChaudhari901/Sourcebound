@@ -1,0 +1,10 @@
+# --- Web framework / ASGI ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Validation & settings ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Structured logging ---
+structlog==24.4.0
