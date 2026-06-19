@@ -1,0 +1,7 @@
+# Local environment (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# OS / editor cruft
+.DS_Store
