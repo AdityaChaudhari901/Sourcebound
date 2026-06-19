@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware
+from app.core.observability import configure_langfuse, shutdown_langfuse
 
 logger = get_logger(__name__)
 
@@ -31,8 +32,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         version=settings.app_version,
         environment=settings.environment,
     )
-    # Resource init (db pool, redis, qdrant, langfuse) is wired in later slices.
+    configure_langfuse()  # init tracing (no-op if unconfigured); verifies connectivity
+    # Other resource init (db pool, redis, qdrant) is wired in later slices.
     yield
+    shutdown_langfuse()  # flush buffered traces before exit
     logger.info("app_shutdown", service=settings.app_name)
 
 

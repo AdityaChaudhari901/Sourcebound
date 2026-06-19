@@ -11,7 +11,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,35 @@ class Settings(BaseSettings):
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True
+
+    # --- Langfuse observability ---
+    # These use the standard, unprefixed LANGFUSE_* env names (Langfuse convention)
+    # rather than the SOURCEBOUND_ prefix, so they match the keys from the Langfuse
+    # UI and the langfuse-cli. Tracing is a no-op when keys are absent.
+    langfuse_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("LANGFUSE_ENABLED", "SOURCEBOUND_LANGFUSE_ENABLED"),
+    )
+    langfuse_public_key: str | None = Field(
+        default=None, validation_alias=AliasChoices("LANGFUSE_PUBLIC_KEY")
+    )
+    langfuse_secret_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("LANGFUSE_SECRET_KEY")
+    )
+    langfuse_host: str = Field(
+        default="https://cloud.langfuse.com",
+        validation_alias=AliasChoices("LANGFUSE_BASE_URL", "LANGFUSE_HOST"),
+    )
+    langfuse_release: str | None = Field(
+        default=None, validation_alias=AliasChoices("LANGFUSE_RELEASE")
+    )
+
+    @property
+    def langfuse_configured(self) -> bool:
+        """True only when tracing is enabled and both keys are present."""
+        return bool(
+            self.langfuse_enabled and self.langfuse_public_key and self.langfuse_secret_key
+        )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

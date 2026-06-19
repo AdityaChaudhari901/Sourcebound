@@ -8,3 +8,6 @@ pydantic-settings==2.7.1
 
 # --- Structured logging ---
 structlog==24.4.0
+
+# --- Observability ---
+langfuse==4.9.1
