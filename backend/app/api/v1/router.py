@@ -7,8 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-api_router = APIRouter()
+from app.api.v1.routes import ingest
 
-# Feature routers will be registered here, e.g.:
-# from app.api.v1.routes import documents
-# api_router.include_router(documents.router)
+api_router = APIRouter()
+api_router.include_router(ingest.router)

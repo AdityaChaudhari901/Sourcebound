@@ -41,6 +41,29 @@ class Settings(BaseSettings):
     )
     db_echo: bool = False
 
+    @property
+    def sync_database_url(self) -> str:
+        """The sync (psycopg) form of database_url, for the synchronous ingestion path."""
+        return self.database_url.replace("+asyncpg", "+psycopg")
+
+    # --- Vector store (Qdrant) ---
+    qdrant_url: str = Field(
+        default="http://localhost:6333",
+        validation_alias=AliasChoices("QDRANT_URL", "SOURCEBOUND_QDRANT_URL"),
+    )
+    qdrant_collection: str = Field(
+        default="sourcebound_chunks",
+        validation_alias=AliasChoices("QDRANT_COLLECTION", "SOURCEBOUND_QDRANT_COLLECTION"),
+    )
+
+    # --- Embeddings ---
+    embedding_provider: str = "fastembed"  # interface key; only "fastembed" wired for now
+    embedding_model: str = "BAAI/bge-small-en-v1.5"  # open BGE, 384-dim
+
+    # --- Chunking (tune against an eval set later) ---
+    chunk_size: int = 1000      # characters (~250 tokens at ~4 chars/token)
+    chunk_overlap: int = 150    # ~15% of chunk_size, preserves context across boundaries
+
     # --- CORS (comma-separated string or list) ---
     cors_origins: list[str] = ["http://localhost:3000"]
 

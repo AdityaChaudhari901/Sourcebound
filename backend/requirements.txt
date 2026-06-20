@@ -15,4 +15,12 @@ langfuse==4.9.1
 # --- Database (async ORM + driver + migrations) ---
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
+psycopg[binary]==3.2.3          # sync driver for the blocking ingestion path
 alembic==1.14.0
+
+# --- Ingestion / RAG components ---
+python-multipart==0.0.20        # FastAPI file uploads
+langchain-text-splitters==0.3.4 # recursive + markdown-header splitters
+pypdf==5.1.0                    # PDF text extraction
+fastembed==0.5.1                # open BGE embeddings (ONNX, no torch)
+qdrant-client==1.12.1           # vector upsert

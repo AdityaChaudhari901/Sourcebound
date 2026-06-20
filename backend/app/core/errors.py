@@ -56,6 +56,10 @@ class ValidationAppError(AppError):
     code, status_code = "validation_error", status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+class UnsupportedMediaTypeError(AppError):
+    code, status_code = "unsupported_media_type", status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+
+
 # Map common raw HTTP status codes to stable envelope codes.
 _HTTP_CODE_MAP: dict[int, str] = {
     400: "bad_request",
