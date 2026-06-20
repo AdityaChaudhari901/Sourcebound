@@ -20,6 +20,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum as SAEnum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -304,6 +305,27 @@ class AnswerFeedback(Base):
 
     # One feedback per user per answer (re-submitting updates it).
     __table_args__ = (Index("uq_answer_feedback_message_user", "message_id", "user_id", unique=True),)
+
+
+class EvalRun(Base):
+    """One execution of the eval harness over a golden dataset (aggregate scores)."""
+
+    __tablename__ = "eval_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    dataset: Mapped[str] = mapped_column(Text, nullable=False)
+    num_questions: Mapped[int] = mapped_column(Integer, nullable=False)
+    llm_model: Mapped[str] = mapped_column(Text, nullable=False)
+    faithfulness: Mapped[float] = mapped_column(Float, nullable=False)
+    answer_relevancy: Mapped[float] = mapped_column(Float, nullable=False)
+    context_precision: Mapped[float] = mapped_column(Float, nullable=False)
+    context_recall: Mapped[float] = mapped_column(Float, nullable=False)
+    details: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # per-question scores
 
 
 class Chunk(Base):

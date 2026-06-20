@@ -1,0 +1,15 @@
+{"question": "How often must payments secrets be rotated?", "ground_truth": "Secrets must be rotated every 90 days.", "ideal_sources": ["payments.md"]}
+{"question": "What command rotates a payments secret?", "ground_truth": "Use the Vault CLI command: vault rotate payments.", "ideal_sources": ["payments.md"]}
+{"question": "Which environment variable must be set for the payments service?", "ground_truth": "The STRIPE_KEY environment variable.", "ideal_sources": ["payments.md"]}
+{"question": "What port does the payments service listen on?", "ground_truth": "Port 8080 by default.", "ideal_sources": ["payments.md"]}
+{"question": "Within how many days can a refund be issued?", "ground_truth": "Within 60 days of the original charge.", "ideal_sources": ["payments.md"]}
+{"question": "What is required for refunds over $1000?", "ground_truth": "Manager approval is required before the refund is processed.", "ideal_sources": ["payments.md"]}
+{"question": "How do I request access to Vault?", "ground_truth": "Request access by posting in the #platform Slack channel.", "ideal_sources": ["onboarding.md"]}
+{"question": "How many approvals does a pull request need before merge?", "ground_truth": "At least two approvals.", "ideal_sources": ["onboarding.md"]}
+{"question": "What faithfulness score blocks a merge in CI?", "ground_truth": "A faithfulness below 0.8 blocks the merge.", "ideal_sources": ["onboarding.md"]}
+{"question": "What access do new hires get for the first two weeks?", "ground_truth": "Read-only access.", "ideal_sources": ["onboarding.md"]}
+{"question": "What deployment strategy does the team use?", "ground_truth": "Blue-green deployments.", "ideal_sources": ["deploys.md"]}
+{"question": "How do I roll back a deployment?", "ground_truth": "Roll back with the command make rollback.", "ideal_sources": ["deploys.md"]}
+{"question": "What error rate triggers a rollback?", "ground_truth": "An error rate above 2% after a deploy.", "ideal_sources": ["deploys.md"]}
+{"question": "On which days do production deploys happen?", "ground_truth": "On Tuesdays and Thursdays.", "ideal_sources": ["deploys.md"]}
+{"question": "How long does the blue-green traffic shift take?", "ground_truth": "Traffic is shifted over 10 minutes.", "ideal_sources": ["deploys.md"]}
