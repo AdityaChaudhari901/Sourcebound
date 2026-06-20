@@ -75,3 +75,18 @@ def build_grader_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
         f"Documents:\n{items}\n\n"
         "JSON array of the relevant document numbers:"
     )
+
+
+# --- Query rewriter (corrective RAG: reformulate for better retrieval) -------------
+
+REWRITE_SYSTEM = (
+    "You reformulate a user's question into a single improved search query for an "
+    "internal technical knowledge base. Preserve the original intent exactly. Make it "
+    "more retrievable: clearer keywords, likely exact identifiers (service names, env "
+    "vars, error codes) and synonyms that would appear in the docs. "
+    "Output ONLY the reformulated query — no quotes, no preamble."
+)
+
+
+def build_rewrite_prompt(question: str) -> str:
+    return f"Original question: {question}\n\nReformulated search query:"

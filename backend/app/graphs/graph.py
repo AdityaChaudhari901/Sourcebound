@@ -1,12 +1,14 @@
-"""The compiled query graph (corrective RAG, taking shape).
+"""The compiled query graph (corrective RAG with a bounded rewrite loop).
 
-    START -> retrieve -> grade_documents -> (relevant?) ┬─ yes -> generate -> END
-                                                        └─ no  -> corrective -> END
+    START -> retrieve -> grade_documents -> (relevant?)
+        ├─ relevant ............................-> generate -> END
+        ├─ not relevant & retries < cap ........-> rewrite_query -> retrieve  (loop)
+        └─ not relevant & retries >= cap .......-> generate -> END  (graceful degrade)
 
-`grade_documents` filters out irrelevant retrieved docs; a conditional edge then
-routes to generation when relevant context survives, or to the corrective path
-(a stub for now) when it doesn't. New behavior slots in as nodes + edges without
-touching the /query endpoint.
+The loop (retrieve -> grade -> rewrite -> retrieve) is what makes this a *graph*,
+not a chain. `retries` (capped by settings.max_query_retries) guarantees it
+terminates: after the cap we stop rewriting and generate from the best-available
+context instead of looping forever.
 """
 
 from __future__ import annotations
@@ -17,11 +19,11 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.graphs.nodes import (
-    corrective,
-    decide_to_generate,
+    decide_after_grade,
     generate,
     grade_documents,
     retrieve,
+    rewrite_query,
 )
 from app.graphs.state import QueryState
 
@@ -30,17 +32,17 @@ def build_query_graph() -> CompiledStateGraph:
     builder = StateGraph(QueryState)
     builder.add_node("retrieve", retrieve)
     builder.add_node("grade_documents", grade_documents)
+    builder.add_node("rewrite_query", rewrite_query)
     builder.add_node("generate", generate)
-    builder.add_node("corrective", corrective)
 
     builder.add_edge(START, "retrieve")
     builder.add_edge("retrieve", "grade_documents")
-    # Conditional edge: the router reads state and returns the next node's name.
+    # Conditional edge: router reads state (relevance + retries) and picks the next node.
     builder.add_conditional_edges(
-        "grade_documents", decide_to_generate, ["generate", "corrective"]
+        "grade_documents", decide_after_grade, ["generate", "rewrite_query"]
     )
+    builder.add_edge("rewrite_query", "retrieve")  # the loop back
     builder.add_edge("generate", END)
-    builder.add_edge("corrective", END)
     return builder.compile()
 
 

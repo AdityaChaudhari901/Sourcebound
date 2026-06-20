@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     rerank_enabled: bool = True
     reranker_model: str = "BAAI/bge-reranker-base"  # BGE cross-encoder
 
+    # --- Corrective loop ---
+    max_query_retries: int = 2  # max query rewrites before degrading gracefully
+
     # --- LLM (swappable provider interface; default free local Ollama) ---
     llm_provider: str = "ollama"   # ollama | groq | gemini | openai | vertex
     llm_model: str | None = None   # None -> provider default
