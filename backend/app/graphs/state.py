@@ -16,5 +16,6 @@ from app.rag.retrievers import RetrievedChunk
 class QueryState(TypedDict):
     question: str
     documents: list[RetrievedChunk]
+    documents_relevant: bool  # grade: did any retrieved doc survive relevance grading?
     generation: str
     retries: int

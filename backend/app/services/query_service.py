@@ -86,7 +86,13 @@ def answer_question(question: str, *, k: int | None = None) -> QueryResult:
     an insufficiency answer.
     """
     final_state = get_query_graph().invoke(
-        {"question": question, "documents": [], "generation": "", "retries": 0},
+        {
+            "question": question,
+            "documents": [],
+            "documents_relevant": False,
+            "generation": "",
+            "retries": 0,
+        },
         config={"configurable": {"k": k or settings.query_top_k}},
     )
     documents = final_state["documents"]

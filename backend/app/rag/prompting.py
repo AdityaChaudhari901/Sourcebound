@@ -44,3 +44,34 @@ def build_user_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
         f"Question: {question}\n\n"
         "Answer (grounded in the context, with [n] citations):"
     )
+
+
+# --- Relevance grader (LLM-as-grader for corrective RAG) ---------------------------
+#
+# Calibration is baked into the rubric: the grader is a coarse noise filter, not a
+# judge of whether a doc *fully answers* the question. It is biased toward RECALL
+# (keep a doc that is even partially related) because the grounded answer prompt
+# above is the real backstop against using off-topic context — dropping a doc that
+# holds the answer is the costlier error. The output is a hard JSON list of indices
+# (binary keep/drop), which is less wobbly than a fuzzy 0-1 score.
+
+GRADER_SYSTEM = (
+    "You are a relevance grader for a retrieval system. You are given a question and "
+    "a numbered list of retrieved documents.\n"
+    "A document is RELEVANT if it contains facts, keywords, identifiers, or context "
+    "that help answer the question — even partially. It does NOT need to fully answer "
+    "the question on its own.\n"
+    "Be inclusive: when genuinely unsure about a document, keep it. Only drop "
+    "documents that are clearly about a different topic.\n"
+    "Output ONLY a JSON array of the relevant document numbers, e.g. [1, 3]. "
+    "If none are relevant, output []. No prose, no explanation."
+)
+
+
+def build_grader_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
+    items = "\n\n".join(f"[{i}] {chunk.text}" for i, chunk in enumerate(chunks, start=1))
+    return (
+        f"Question: {question}\n\n"
+        f"Documents:\n{items}\n\n"
+        "JSON array of the relevant document numbers:"
+    )
