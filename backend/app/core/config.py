@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     # --- Corrective loop ---
     max_query_retries: int = 2  # max query rewrites before degrading gracefully
 
+    # --- Conversation memory (bounded so context can't grow unboundedly) ---
+    history_max_messages: int = 6      # at most the last N messages carried into the prompt
+    history_char_budget: int = 4000    # ...and never more than this many characters total
+
     # --- Web search fallback (Tavily; off unless enabled + key present) ---
     web_search_enabled: bool = Field(
         default=False,

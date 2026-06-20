@@ -85,7 +85,9 @@ def _citations_for(answer: str, chunks) -> list[Citation]:
     ]
 
 
-def answer_question(question: str, *, tenant_id: str, k: int | None = None) -> QueryResult:
+def answer_question(
+    question: str, *, tenant_id: str, k: int | None = None, history: list[dict] | None = None
+) -> QueryResult:
     """Non-streaming: run the compiled query graph (tenant-scoped), then cite.
 
     tenant_id flows through the graph config to the retrieve node, which filters
@@ -99,7 +101,13 @@ def answer_question(question: str, *, tenant_id: str, k: int | None = None) -> Q
             "generation": "",
             "retries": 0,
         },
-        config={"configurable": {"k": k or settings.query_top_k, "tenant_id": tenant_id}},
+        config={
+            "configurable": {
+                "k": k or settings.query_top_k,
+                "tenant_id": tenant_id,
+                "history": history,
+            }
+        },
     )
     documents = final_state["documents"]
     answer = final_state["generation"]
@@ -114,7 +122,11 @@ def answer_question(question: str, *, tenant_id: str, k: int | None = None) -> Q
 
 
 def stream_answer(
-    question: str, *, tenant_id: str, k: int | None = None
+    question: str,
+    *,
+    tenant_id: str,
+    k: int | None = None,
+    history: list[dict] | None = None,
 ) -> Iterator[TokenChunk | FinalResult]:
     """Streaming: yield answer tokens as they generate, then a final citations event.
 
@@ -130,7 +142,9 @@ def stream_answer(
 
     provider = get_llm_provider()
     parts: list[str] = []
-    for token in provider.stream(system=SYSTEM_PROMPT, user=build_user_prompt(question, chunks)):
+    for token in provider.stream(
+        system=SYSTEM_PROMPT, user=build_user_prompt(question, chunks, history)
+    ):
         parts.append(token)
         yield TokenChunk(text=token)
 

@@ -38,8 +38,21 @@ def build_context_block(chunks: list[RetrievedChunk]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_user_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
+def build_history_block(history: list[dict] | None) -> str:
+    """Compact prior-turns block (already bounded by the caller)."""
+    if not history:
+        return ""
+    lines = [f"{turn['role']}: {turn['content']}" for turn in history]
+    return "Conversation so far (for context only — still answer ONLY from the sources):\n" + (
+        "\n".join(lines) + "\n\n"
+    )
+
+
+def build_user_prompt(
+    question: str, chunks: list[RetrievedChunk], history: list[dict] | None = None
+) -> str:
     return (
+        f"{build_history_block(history)}"
         f"Context:\n{build_context_block(chunks)}\n\n"
         f"Question: {question}\n\n"
         "Answer (grounded in the context, with [n] citations):"

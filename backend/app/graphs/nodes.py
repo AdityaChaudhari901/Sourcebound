@@ -157,8 +157,9 @@ def generate(state: QueryState, config: RunnableConfig) -> dict:
     documents = state["documents"]
     if not documents:
         return {"generation": INSUFFICIENT_ANSWER}
+    history = (config.get("configurable") or {}).get("history")
     answer = get_llm_provider().complete(
         system=SYSTEM_PROMPT,
-        user=build_user_prompt(state["question"], documents),
+        user=build_user_prompt(state["question"], documents, history),
     )
     return {"generation": answer}
