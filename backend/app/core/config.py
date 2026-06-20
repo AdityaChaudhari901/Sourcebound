@@ -72,8 +72,11 @@ class Settings(BaseSettings):
     chunk_size: int = 1000      # characters (~250 tokens at ~4 chars/token)
     chunk_overlap: int = 150    # ~15% of chunk_size, preserves context across boundaries
 
-    # --- Retrieval ---
-    query_top_k: int = 4        # default dense retrieval depth (overridable per request)
+    # --- Retrieval + rerank (two-stage: retrieve N -> rerank to k) ---
+    retrieve_top_n: int = 20    # stage-1 candidates from hybrid retrieval (N)
+    query_top_k: int = 5        # stage-2 results after rerank, passed to the LLM (k)
+    rerank_enabled: bool = True
+    reranker_model: str = "BAAI/bge-reranker-base"  # BGE cross-encoder
 
     # --- LLM (swappable provider interface; default free local Ollama) ---
     llm_provider: str = "ollama"   # ollama | groq | gemini | openai | vertex
