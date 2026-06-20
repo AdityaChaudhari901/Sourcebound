@@ -9,6 +9,10 @@ pydantic-settings==2.7.1
 # --- Structured logging ---
 structlog==24.4.0
 
+# --- Auth ---
+pyjwt==2.10.1                   # JWT issue/verify (HS256)
+argon2-cffi==23.1.0            # password hashing
+
 # --- Observability ---
 langfuse==4.9.1
 

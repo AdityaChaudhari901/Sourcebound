@@ -17,6 +17,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
+from app.api.deps import CurrentPrincipal
 from app.schemas.query import CitationOut, QueryRequest, QueryResponse
 from app.services.query_service import (
     FinalResult,
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/query", tags=["query"])
 
 
 @router.post("", response_model=QueryResponse)
-async def query(request: QueryRequest) -> QueryResponse:
+async def query(request: QueryRequest, principal: CurrentPrincipal) -> QueryResponse:
     result = await run_in_threadpool(answer_question, request.question, k=request.k)
     return QueryResponse(
         answer=result.answer,
@@ -51,7 +52,7 @@ def _sse(event: str, data: dict) -> str:
 
 
 @router.post("/stream")
-async def query_stream(request: QueryRequest) -> StreamingResponse:
+async def query_stream(request: QueryRequest, principal: CurrentPrincipal) -> StreamingResponse:
     def event_stream() -> Iterator[str]:
         try:
             for event in stream_answer(request.question, k=request.k):

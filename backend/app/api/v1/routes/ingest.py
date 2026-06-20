@@ -16,6 +16,7 @@ from uuid import UUID
 from fastapi import APIRouter, File, Form, UploadFile, status
 from sqlalchemy import func, select
 
+from app.api.deps import CurrentPrincipal
 from app.core.errors import NotFoundError, UnsupportedMediaTypeError
 from app.database.models import Chunk, Document, DocumentStatus, IngestionJob, IngestionState
 from app.database.session import DbSession
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/ingest", tags=["ingestion"])
 @router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=IngestEnqueuedResponse)
 async def ingest(
     db: DbSession,
+    principal: CurrentPrincipal,
     file: UploadFile = File(..., description="PDF or Markdown file."),
     source_uri: str | None = Form(None),
     title: str | None = Form(None),
@@ -65,7 +67,7 @@ async def ingest(
 
 
 @router.get("/{job_id}", response_model=IngestJobStatus)
-async def ingest_status(job_id: UUID, db: DbSession) -> IngestJobStatus:
+async def ingest_status(job_id: UUID, principal: CurrentPrincipal, db: DbSession) -> IngestJobStatus:
     job = await db.get(IngestionJob, job_id)
     if job is None:
         raise NotFoundError(f"Ingestion job {job_id} not found")

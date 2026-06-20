@@ -12,6 +12,26 @@ const BASE_URL = (
 
 export const API_BASE_URL = BASE_URL;
 
+// --- Auth token (set by the AuthProvider; attached to every request) ---
+let authToken = null;
+let onUnauthorized = null;
+
+export function setAuthToken(token) {
+  authToken = token;
+}
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
+export function authHeaders() {
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+}
+
+function handleUnauthorized(status) {
+  if (status === 401 && onUnauthorized) onUnauthorized();
+}
+
 export class ApiError extends Error {
   constructor(message, { status, code, requestId, details } = {}) {
     super(message);
@@ -30,6 +50,7 @@ export async function apiFetch(path, { method = "GET", body, headers, signal } =
     method,
     headers: {
       Accept: "application/json",
+      ...authHeaders(),
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
@@ -41,6 +62,7 @@ export async function apiFetch(path, { method = "GET", body, headers, signal } =
   const payload = isJson ? await res.json().catch(() => null) : await res.text();
 
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const envelope = isJson && payload && typeof payload === "object" ? payload.error : null;
     throw new ApiError(envelope?.message ?? `Request failed (${res.status})`, {
       status: res.status,
@@ -61,7 +83,7 @@ export async function apiUpload(path, formData, { signal } = {}) {
   const url = `${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...authHeaders() },
     body: formData,
     signal,
   });
@@ -70,6 +92,7 @@ export async function apiUpload(path, formData, { signal } = {}) {
   const payload = isJson ? await res.json().catch(() => null) : await res.text();
 
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const envelope = isJson && payload && typeof payload === "object" ? payload.error : null;
     throw new ApiError(envelope?.message ?? `Upload failed (${res.status})`, {
       status: res.status,

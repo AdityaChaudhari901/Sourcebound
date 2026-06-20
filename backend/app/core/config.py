@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     # --- API ---
     api_v1_prefix: str = "/api/v1"
 
+    # --- Auth (JWT + API keys) ---
+    jwt_secret: SecretStr = Field(
+        default=SecretStr("dev-insecure-change-me-in-production"),
+        validation_alias=AliasChoices("JWT_SECRET", "SOURCEBOUND_JWT_SECRET"),
+    )
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 720  # 12h (dev convenience)
+    api_key_prefix: str = "sb_"  # human-readable prefix on generated API keys
+
     # --- Database (async SQLAlchemy / asyncpg) ---
     # Standard DATABASE_URL name (unprefixed) so it matches docker-compose docs.
     database_url: str = Field(

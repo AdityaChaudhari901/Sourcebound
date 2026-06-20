@@ -1,4 +1,4 @@
-import { API_BASE_URL, ApiError } from "@/lib/api";
+import { API_BASE_URL, ApiError, authHeaders } from "@/lib/api";
 
 /**
  * POST a JSON body and consume a Server-Sent Events stream.
@@ -11,7 +11,11 @@ export async function streamSSE(path, body, { onEvent, signal } = {}) {
   const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...authHeaders(),
+    },
     body: JSON.stringify(body),
     signal,
   });

@@ -6,9 +6,12 @@ import {
   Activity,
   Database,
   FlaskConical,
+  LogOut,
   MessageSquareText,
   Settings2,
 } from "lucide-react";
+
+import { useAuth } from "@/lib/auth";
 
 // `href: null` = not built yet (inert placeholder). `code` is the mono shorthand.
 const NAV_ITEMS = [
@@ -24,6 +27,7 @@ const VERSION = "0.1.0";
 
 export function AppShell({ children }) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
   const active = NAV_ITEMS.find((item) => item.href === pathname);
   const title = active?.label ?? "Sourcebound";
 
@@ -92,6 +96,26 @@ export function AppShell({ children }) {
             })}
           </ul>
         </nav>
+
+        {/* Signed-in user + logout */}
+        <div className="border-border flex items-center gap-2 border-t px-3 py-2.5">
+          <div className="min-w-0 flex-1 px-2">
+            <p className="text-muted-foreground/60 font-mono text-[10px] uppercase tracking-wider">
+              Signed in
+            </p>
+            <p className="text-foreground/90 truncate text-xs" title={user?.email}>
+              {user?.email ?? "…"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            title="Sign out"
+            className="text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-ring rounded-md p-2 transition-colors focus-visible:outline-none focus-visible:ring-2"
+          >
+            <LogOut className="size-4" aria-hidden />
+          </button>
+        </div>
 
         <div className="border-border text-muted-foreground border-t px-5 py-3 font-mono text-[11px] leading-5">
           <div className="flex items-center justify-between">

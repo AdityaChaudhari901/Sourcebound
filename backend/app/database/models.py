@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum as SAEnum,
@@ -68,6 +69,57 @@ def _enum_column(py_enum: type[enum.Enum], *, length: int) -> SAEnum:
         length=length,
         values_callable=lambda e: [member.value for member in e],
         validate_strings=True,
+    )
+
+
+# --- Auth models ----------------------------------------------------------------
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)  # argon2; never plaintext
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    api_keys: Mapped[list[ApiKey]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    __table_args__ = (Index("uq_users_email", "email", unique=True),)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    prefix: Mapped[str] = mapped_column(Text, nullable=False)      # display only (non-secret)
+    key_hash: Mapped[str] = mapped_column(Text, nullable=False)    # sha256 of the key; never plaintext
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="api_keys")
+
+    __table_args__ = (
+        Index("uq_api_keys_key_hash", "key_hash", unique=True),  # lookup by hash on every request
+        Index("ix_api_keys_user_id", "user_id"),
     )
 
 
