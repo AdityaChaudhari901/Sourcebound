@@ -10,6 +10,7 @@ Default: Ollama (local, free, no key). Set ``LLM_PROVIDER=groq`` + ``GROQ_API_KE
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
@@ -32,6 +33,10 @@ class LLMProvider(Protocol):
 
     def complete(self, *, system: str, user: str) -> str:
         """Return the model's text completion for a system + user prompt."""
+        ...
+
+    def stream(self, *, system: str, user: str) -> Iterator[str]:
+        """Yield the completion incrementally as text chunks."""
         ...
 
 
@@ -100,6 +105,24 @@ class OpenAICompatibleProvider:
             raise LLMRequestError(f"LLM request failed: {exc}") from exc
         return (response.choices[0].message.content or "").strip()
 
+    def stream(self, *, system: str, user: str) -> Iterator[str]:
+        try:
+            stream = self._client.chat.completions.create(
+                model=self.model_name,
+                temperature=settings.llm_temperature,
+                stream=True,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    yield delta
+        except Exception as exc:  # noqa: BLE001
+            raise LLMRequestError(f"LLM stream failed: {exc}") from exc
+
 
 class VertexProvider:
     """Gemini on Vertex AI via google-genai. Auth is ADC; usage bills GCP credits."""
@@ -131,6 +154,23 @@ class VertexProvider:
         except Exception as exc:  # noqa: BLE001
             raise LLMRequestError(f"Vertex request failed: {exc}") from exc
         return (response.text or "").strip()
+
+    def stream(self, *, system: str, user: str) -> Iterator[str]:
+        from google.genai import types
+
+        try:
+            for chunk in self._client.models.generate_content_stream(
+                model=self.model_name,
+                contents=user,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=settings.llm_temperature,
+                ),
+            ):
+                if chunk.text:
+                    yield chunk.text
+        except Exception as exc:  # noqa: BLE001
+            raise LLMRequestError(f"Vertex stream failed: {exc}") from exc
 
 
 @lru_cache(maxsize=1)

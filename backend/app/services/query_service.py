@@ -9,6 +9,7 @@ so we never present sources for a non-answer.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from app.core.config import settings
@@ -40,47 +41,90 @@ class QueryResult:
     citations: list[Citation]
 
 
+# --- Streaming event types (yielded by stream_answer) ---
+
+
+@dataclass(frozen=True)
+class TokenChunk:
+    text: str
+
+
+@dataclass(frozen=True)
+class FinalResult:
+    answer: str
+    citations: list[Citation]
+
+
 def _snippet(text: str) -> str:
     text = " ".join(text.split())
     return text if len(text) <= _SNIPPET_CHARS else text[:_SNIPPET_CHARS].rstrip() + "…"
 
 
-def answer_question(question: str, *, k: int | None = None) -> QueryResult:
-    top_k = k or settings.query_top_k
-    # Stage 1: retrieve a wide candidate set (N) via hybrid retrieval.
+def _retrieve_and_rank(question: str, top_k: int):
+    """Stage 1 (hybrid, top-N) -> stage 2 (cross-encoder rerank, top-k)."""
     candidates = get_retriever().retrieve(question, k=settings.retrieve_top_n)
-    # Stage 2: rerank the candidates with a cross-encoder down to top-k for the LLM.
-    chunks = get_reranker().rerank(question, candidates, top_k=top_k)
+    return candidates, get_reranker().rerank(question, candidates, top_k=top_k)
 
+
+def _citations_for(answer: str, chunks) -> list[Citation]:
+    """Citations for the answer — dropped when the model declared insufficiency."""
+    if INSUFFICIENT_ANSWER.lower() in answer.lower():
+        return []
+    return [
+        Citation(source_uri=c.source_uri, chunk_id=c.chunk_id, snippet=_snippet(c.text))
+        for c in chunks
+    ]
+
+
+def answer_question(question: str, *, k: int | None = None) -> QueryResult:
+    """Non-streaming: retrieve -> rerank -> generate -> cite, returned as one object."""
+    candidates, chunks = _retrieve_and_rank(question, k or settings.query_top_k)
     if not chunks:
         logger.info("query_no_context", question_len=len(question))
         return QueryResult(answer=INSUFFICIENT_ANSWER, citations=[])
 
     provider = get_llm_provider()
-    user_prompt = build_user_prompt(question, chunks)
-    answer = provider.complete(system=SYSTEM_PROMPT, user=user_prompt)
-
-    # Drop citations when the model declared the context insufficient.
-    insufficient = INSUFFICIENT_ANSWER.lower() in answer.lower()
-    citations = (
-        []
-        if insufficient
-        else [
-            Citation(
-                source_uri=chunk.source_uri,
-                chunk_id=chunk.chunk_id,
-                snippet=_snippet(chunk.text),
-            )
-            for chunk in chunks
-        ]
-    )
+    answer = provider.complete(system=SYSTEM_PROMPT, user=build_user_prompt(question, chunks))
+    citations = _citations_for(answer, chunks)
 
     logger.info(
         "query_answered",
         candidates=len(candidates),
         reranked=len(chunks),
         cited=len(citations),
-        insufficient=insufficient,
         model=provider.model_name,
     )
     return QueryResult(answer=answer, citations=citations)
+
+
+def stream_answer(
+    question: str, *, k: int | None = None
+) -> Iterator[TokenChunk | FinalResult]:
+    """Streaming: yield answer tokens as they generate, then a final citations event.
+
+    Same retrieve -> rerank -> ground pipeline as answer_question; only generation
+    differs. Citations are emitted at the end because they're dropped when the model
+    declares the context insufficient (only known once the full answer is in).
+    """
+    candidates, chunks = _retrieve_and_rank(question, k or settings.query_top_k)
+    if not chunks:
+        logger.info("query_no_context", question_len=len(question))
+        yield FinalResult(answer=INSUFFICIENT_ANSWER, citations=[])
+        return
+
+    provider = get_llm_provider()
+    parts: list[str] = []
+    for token in provider.stream(system=SYSTEM_PROMPT, user=build_user_prompt(question, chunks)):
+        parts.append(token)
+        yield TokenChunk(text=token)
+
+    answer = "".join(parts).strip()
+    citations = _citations_for(answer, chunks)
+    logger.info(
+        "query_answered_stream",
+        candidates=len(candidates),
+        reranked=len(chunks),
+        cited=len(citations),
+        model=provider.model_name,
+    )
+    yield FinalResult(answer=answer, citations=citations)
