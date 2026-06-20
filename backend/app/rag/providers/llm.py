@@ -22,6 +22,10 @@ class LLMConfigError(AppError):
     code, status_code = "llm_not_configured", 503
 
 
+class LLMRequestError(AppError):
+    code, status_code = "llm_request_failed", 502
+
+
 @runtime_checkable
 class LLMProvider(Protocol):
     model_name: str
@@ -83,17 +87,54 @@ class OpenAICompatibleProvider:
         self._client = OpenAI(base_url=preset.base_url, api_key=preset.api_key)
 
     def complete(self, *, system: str, user: str) -> str:
-        response = self._client.chat.completions.create(
-            model=self.model_name,
-            temperature=settings.llm_temperature,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        )
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model_name,
+                temperature=settings.llm_temperature,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+            )
+        except Exception as exc:  # noqa: BLE001 - surface upstream failures cleanly
+            raise LLMRequestError(f"LLM request failed: {exc}") from exc
         return (response.choices[0].message.content or "").strip()
+
+
+class VertexProvider:
+    """Gemini on Vertex AI via google-genai. Auth is ADC; usage bills GCP credits."""
+
+    def __init__(self) -> None:
+        from google import genai
+
+        if not settings.vertex_project:
+            raise LLMConfigError("VERTEX_PROJECT_ID is not set for the vertex provider.")
+        self.model_name = settings.llm_model or "gemini-2.5-flash"
+        self._client = genai.Client(
+            vertexai=True,
+            project=settings.vertex_project,
+            location=settings.vertex_region,
+        )
+
+    def complete(self, *, system: str, user: str) -> str:
+        from google.genai import types
+
+        try:
+            response = self._client.models.generate_content(
+                model=self.model_name,
+                contents=user,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=settings.llm_temperature,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise LLMRequestError(f"Vertex request failed: {exc}") from exc
+        return (response.text or "").strip()
 
 
 @lru_cache(maxsize=1)
 def get_llm_provider() -> LLMProvider:
+    if settings.llm_provider.lower() == "vertex":
+        return VertexProvider()
     return OpenAICompatibleProvider(_resolve_preset())

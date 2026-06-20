@@ -67,12 +67,22 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     query_top_k: int = 4        # default dense retrieval depth (overridable per request)
 
-    # --- LLM (OpenAI-compatible interface; default free local Ollama) ---
-    llm_provider: str = "ollama"   # ollama | groq | gemini | openai
+    # --- LLM (swappable provider interface; default free local Ollama) ---
+    llm_provider: str = "ollama"   # ollama | groq | gemini | openai | vertex
     llm_model: str | None = None   # None -> provider default
     llm_temperature: float = 0.0   # deterministic; low temp curbs fabrication
     llm_base_url: str | None = None  # override the provider's default base URL
     ollama_base_url: str = "http://localhost:11434/v1"
+
+    # Vertex AI (uses Application Default Credentials; bills GCP project credits)
+    vertex_project: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VERTEX_PROJECT_ID", "GOOGLE_CLOUD_PROJECT"),
+    )
+    vertex_region: str = Field(
+        default="us-east5",
+        validation_alias=AliasChoices("VERTEX_REGION", "GOOGLE_CLOUD_LOCATION"),
+    )
     groq_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("GROQ_API_KEY")
     )
