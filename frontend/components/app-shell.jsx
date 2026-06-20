@@ -6,6 +6,7 @@ import {
   Activity,
   Database,
   FlaskConical,
+  LayoutGrid,
   LogOut,
   MessageSquareText,
   Settings2,
@@ -16,7 +17,8 @@ import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 // `href: null` = not built yet (inert placeholder). `code` is the mono shorthand.
 const NAV_ITEMS = [
-  { label: "Ask", code: "ask", icon: MessageSquareText, href: "/" },
+  { label: "Dashboard", code: "dsh", icon: LayoutGrid, href: "/" },
+  { label: "Ask", code: "ask", icon: MessageSquareText, href: "/ask" },
   { label: "Sources", code: "src", icon: Database, href: "/sources" },
   { label: "Evaluations", code: "eval", icon: FlaskConical, href: null },
   { label: "Traces", code: "trc", icon: Activity, href: null },

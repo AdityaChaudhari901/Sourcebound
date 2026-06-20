@@ -271,6 +271,7 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # Assistant messages keep their citations for thread replay (list of dicts).
     citations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)  # answer wall time
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

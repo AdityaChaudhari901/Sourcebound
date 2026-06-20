@@ -77,9 +77,14 @@ async def add_message(
     role: MessageRole,
     content: str,
     citations: list | None = None,
+    latency_ms: int | None = None,
 ) -> Message:
     message = Message(
-        conversation_id=conversation_id, role=role, content=content, citations=citations
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+        citations=citations,
+        latency_ms=latency_ms,
     )
     db.add(message)
     await db.flush()
@@ -87,12 +92,21 @@ async def add_message(
 
 
 def add_message_sync(
-    *, conversation_id: uuid.UUID, role: MessageRole, content: str, citations: list | None = None
+    *,
+    conversation_id: uuid.UUID,
+    role: MessageRole,
+    content: str,
+    citations: list | None = None,
+    latency_ms: int | None = None,
 ) -> uuid.UUID:
     """Persist a message from synchronous code (the streaming generator)."""
     with sync_session() as db:
         message = Message(
-            conversation_id=conversation_id, role=role, content=content, citations=citations
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            citations=citations,
+            latency_ms=latency_ms,
         )
         db.add(message)
         db.commit()

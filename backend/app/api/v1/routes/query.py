@@ -8,6 +8,7 @@ conversation_id plus the assistant message_id (the feedback target).
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 
 from fastapi import APIRouter
@@ -50,6 +51,7 @@ async def query(request: QueryRequest, principal: CurrentPrincipal, db: DbSessio
         db, conversation_id=conversation.id, role=MessageRole.USER, content=request.question
     )
 
+    started = time.perf_counter()
     result = await run_in_threadpool(
         answer_question,
         request.question,
@@ -57,6 +59,7 @@ async def query(request: QueryRequest, principal: CurrentPrincipal, db: DbSessio
         k=request.k,
         history=history,
     )
+    latency_ms = int((time.perf_counter() - started) * 1000)
 
     citation_dicts = _citation_dicts(result.citations)
     assistant = await conversation_service.add_message(
@@ -65,6 +68,7 @@ async def query(request: QueryRequest, principal: CurrentPrincipal, db: DbSessio
         role=MessageRole.ASSISTANT,
         content=result.answer,
         citations=citation_dicts or None,
+        latency_ms=latency_ms,
     )
     await db.commit()
 
@@ -100,6 +104,7 @@ async def query_stream(
     tenant_id = str(principal.tenant_id)
 
     def event_stream() -> Iterator[str]:
+        started = time.perf_counter()
         try:
             for event in stream_answer(
                 request.question, tenant_id=tenant_id, k=request.k, history=history
@@ -114,6 +119,7 @@ async def query_stream(
                         role=MessageRole.ASSISTANT,
                         content=event.answer,
                         citations=citation_dicts or None,
+                        latency_ms=int((time.perf_counter() - started) * 1000),
                     )
                     yield _sse(
                         "citations",
