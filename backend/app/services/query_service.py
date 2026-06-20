@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.graphs.graph import get_query_graph
 from app.rag.prompting import (
     INSUFFICIENT_ANSWER,
     SYSTEM_PROMPT,
@@ -77,22 +78,25 @@ def _citations_for(answer: str, chunks) -> list[Citation]:
 
 
 def answer_question(question: str, *, k: int | None = None) -> QueryResult:
-    """Non-streaming: retrieve -> rerank -> generate -> cite, returned as one object."""
-    candidates, chunks = _retrieve_and_rank(question, k or settings.query_top_k)
-    if not chunks:
-        logger.info("query_no_context", question_len=len(question))
-        return QueryResult(answer=INSUFFICIENT_ANSWER, citations=[])
+    """Non-streaming: run the compiled query graph, then build citations.
 
-    provider = get_llm_provider()
-    answer = provider.complete(system=SYSTEM_PROMPT, user=build_user_prompt(question, chunks))
-    citations = _citations_for(answer, chunks)
+    The graph (retrieve -> generate) owns the pipeline; this service shapes the
+    final state into the API result. Behavior is identical to the previous linear
+    implementation — citations come from the graph's documents and are dropped on
+    an insufficiency answer.
+    """
+    final_state = get_query_graph().invoke(
+        {"question": question, "documents": [], "generation": "", "retries": 0},
+        config={"configurable": {"k": k or settings.query_top_k}},
+    )
+    documents = final_state["documents"]
+    answer = final_state["generation"]
+    citations = _citations_for(answer, documents) if documents else []
 
     logger.info(
         "query_answered",
-        candidates=len(candidates),
-        reranked=len(chunks),
+        reranked=len(documents),
         cited=len(citations),
-        model=provider.model_name,
     )
     return QueryResult(answer=answer, citations=citations)
 

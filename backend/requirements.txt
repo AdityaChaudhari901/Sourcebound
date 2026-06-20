@@ -18,9 +18,13 @@ asyncpg==0.30.0
 psycopg[binary]==3.2.3          # sync driver for the blocking ingestion path
 alembic==1.14.0
 
+# --- Orchestration ---
+langgraph==1.2.6                # query graph (corrective-RAG control flow)
+langchain-core==1.4.8           # shared LangChain primitives (peer of langgraph)
+
 # --- Ingestion / RAG components ---
 python-multipart==0.0.20        # FastAPI file uploads
-langchain-text-splitters==0.3.4 # recursive + markdown-header splitters
+langchain-text-splitters==1.1.2 # recursive + markdown-header splitters (core 1.x)
 pypdf==5.1.0                    # PDF text extraction
 fastembed==0.5.1                # open BGE embeddings (ONNX, no torch)
 qdrant-client==1.12.1           # vector upsert + dense retrieval
