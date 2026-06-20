@@ -1,25 +1,33 @@
-"""Synchronous document ingestion: parse -> chunk -> embed -> upsert -> persist.
+"""Asynchronous ingestion pipeline body (runs inside the Celery worker).
 
-Blocking by design (no asyncio / no Celery yet); the route runs it in a worker
-thread. Written so it converts cleanly to a Celery task later: plain inputs, a
-sync DB session, and providers behind interfaces.
+The API endpoint creates the Document + IngestionJob and enqueues a task; this
+module is what the worker executes: mark the job running, run
+parse -> chunk -> embed (dense + sparse) -> upsert to Qdrant -> persist Chunk rows,
+then mark the job succeeded (or failed). All synchronous — it runs in a worker
+process, off the request path.
 
-Write order is chosen for consistency: persist rows (flush, not commit) -> upsert
-vectors -> commit. If the upsert fails, the DB transaction rolls back; if the
-commit fails after a successful upsert, the just-written vectors are deleted so
-Qdrant and Postgres don't drift.
+Why the worker, not the request: embedding is CPU-bound. Running it inside the
+async API would block the event loop (one slow embed stalls every other request),
+and a large doc would hold the HTTP connection open for seconds. Pushing it to a
+worker keeps the API responsive and lets ingestion scale by adding workers.
 """
 
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from qdrant_client import models
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.database.models import Chunk, Document, DocumentStatus, SourceType
+from app.database.models import (
+    Chunk,
+    Document,
+    DocumentStatus,
+    IngestionJob,
+    IngestionState,
+)
 from app.database.session import sync_session
 from app.rag.chunking import chunk_blocks
 from app.rag.parsing import parse
@@ -30,7 +38,6 @@ from app.rag.providers.embeddings import (
 from app.vectorstore.qdrant import (
     DENSE_VECTOR,
     SPARSE_VECTOR,
-    delete_points,
     ensure_collection,
     get_qdrant_client,
     upsert_points,
@@ -43,28 +50,23 @@ class EmptyDocumentError(Exception):
     """Raised when parsing/chunking yields no usable text."""
 
 
-@dataclass(frozen=True)
-class IngestionResult:
-    document_id: uuid.UUID
-    chunk_count: int
-    source_type: SourceType
-    title: str | None
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-def ingest_document(
+def _index_document(
+    document_id: uuid.UUID,
     *,
-    filename: str | None,
+    filename: str,
     content: bytes,
-    content_type: str | None,
-    source_uri: str | None = None,
-    title: str | None = None,
-) -> IngestionResult:
-    source_type, blocks = parse(filename=filename, content=content, content_type=content_type)
+    content_type: str,
+    source_uri: str,
+) -> int:
+    """parse -> chunk -> embed -> upsert -> persist chunk rows. Returns chunk count."""
+    _source_type, blocks = parse(filename=filename, content=content, content_type=content_type)
     chunks = chunk_blocks(blocks)
     if not chunks:
         raise EmptyDocumentError("No extractable text found in the document.")
-
-    source = source_uri or filename or "unknown"
 
     texts = [chunk.text for chunk in chunks]
     embedder = get_embedding_provider()
@@ -76,18 +78,9 @@ def ingest_document(
     ensure_collection(qdrant, settings.qdrant_collection, embedder.dimension)
 
     with sync_session() as db:
-        document = Document(
-            source_type=source_type,
-            uri=source,
-            title=title,
-            status=DocumentStatus.READY,
-        )
-        db.add(document)
-        db.flush()  # assign document.id
-
         chunk_rows = [
             Chunk(
-                document_id=document.id,
+                document_id=document_id,
                 heading_path=chunk.heading_path,
                 qdrant_point_id=uuid.uuid4(),
                 position=chunk.position,
@@ -95,7 +88,7 @@ def ingest_document(
             for chunk in chunks
         ]
         db.add_all(chunk_rows)
-        db.flush()  # assign chunk.id
+        db.flush()
 
         points = [
             models.PointStruct(
@@ -107,37 +100,76 @@ def ingest_document(
                     ),
                 },
                 payload={
-                    "document_id": str(document.id),
+                    "document_id": str(document_id),
                     "chunk_id": str(row.id),
                     "heading_path": chunk.heading_path,
-                    "source_uri": source,
-                    "text": chunk.text,  # stored for retrieval context + citation snippets
+                    "source_uri": source_uri,
+                    "text": chunk.text,
                 },
             )
             for row, chunk, dense_vec, sparse_vec in zip(
                 chunk_rows, chunks, dense_vectors, sparse_vectors, strict=True
             )
         ]
-
         upsert_points(qdrant, settings.qdrant_collection, points)
-        try:
+        db.commit()
+
+    return len(chunk_rows)
+
+
+def process_ingestion_job(
+    *,
+    job_id: str,
+    document_id: str,
+    filename: str,
+    content: bytes,
+    content_type: str,
+    source_uri: str,
+) -> None:
+    """Worker entrypoint: drive an IngestionJob through running -> succeeded/failed."""
+    job_uuid = uuid.UUID(job_id)
+    doc_uuid = uuid.UUID(document_id)
+
+    with sync_session() as db:
+        job = db.get(IngestionJob, job_uuid)
+        document = db.get(Document, doc_uuid)
+        if job is None or document is None:
+            logger.error("ingest_job_missing", job_id=job_id, document_id=document_id)
+            return
+        job.state = IngestionState.RUNNING
+        job.started_at = _now()
+        document.status = DocumentStatus.PROCESSING
+        db.commit()
+
+    try:
+        chunk_count = _index_document(
+            doc_uuid,
+            filename=filename,
+            content=content,
+            content_type=content_type,
+            source_uri=source_uri,
+        )
+    except Exception as exc:  # noqa: BLE001 - record failure on the job, then re-raise
+        with sync_session() as db:
+            job = db.get(IngestionJob, job_uuid)
+            document = db.get(Document, doc_uuid)
+            if job is not None:
+                job.state = IngestionState.FAILED
+                job.error = str(exc)[:1000]
+                job.finished_at = _now()
+            if document is not None:
+                document.status = DocumentStatus.FAILED
             db.commit()
-        except Exception:
-            # Roll back vectors so Qdrant doesn't keep orphans the DB never recorded.
-            delete_points(qdrant, settings.qdrant_collection, [p.id for p in points])
-            raise
+        logger.error("ingest_job_failed", job_id=job_id, error=str(exc))
+        raise
 
-        document_id = document.id
-
-    logger.info(
-        "document_ingested",
-        document_id=str(document_id),
-        source_type=source_type.value,
-        chunk_count=len(chunk_rows),
-    )
-    return IngestionResult(
-        document_id=document_id,
-        chunk_count=len(chunk_rows),
-        source_type=source_type,
-        title=title,
-    )
+    with sync_session() as db:
+        job = db.get(IngestionJob, job_uuid)
+        document = db.get(Document, doc_uuid)
+        if job is not None:
+            job.state = IngestionState.SUCCEEDED
+            job.finished_at = _now()
+        if document is not None:
+            document.status = DocumentStatus.READY
+        db.commit()
+    logger.info("ingest_job_done", job_id=job_id, chunk_count=chunk_count)

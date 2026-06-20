@@ -18,6 +18,10 @@ asyncpg==0.30.0
 psycopg[binary]==3.2.3          # sync driver for the blocking ingestion path
 alembic==1.14.0
 
+# --- Async ingestion (Celery + Redis) ---
+celery==5.4.0                   # task queue for async ingestion
+redis==5.2.1                    # Celery broker + result backend client
+
 # --- Orchestration ---
 langgraph==1.2.6                # query graph (corrective-RAG control flow)
 langchain-core==1.4.8           # shared LangChain primitives (peer of langgraph)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Loader2, Upload } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -10,23 +10,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+const TERMINAL = new Set(["succeeded", "failed"]);
+
+const STATE_LABEL = {
+  queued: "Queued",
+  running: "Processing",
+  succeeded: "Ready",
+  failed: "Failed",
+};
+
 export default function SourcesPage() {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
+  const [jobId, setJobId] = useState(null);
 
-  const mutation = useMutation({
+  // 1) Upload -> enqueue -> returns a job id immediately (202).
+  const upload = useMutation({
     mutationFn: ({ file, title }) => {
       const form = new FormData();
       form.append("file", file);
       if (title.trim()) form.append("title", title.trim());
       return api.upload("/ingest", form);
     },
+    onSuccess: (data) => setJobId(data.job_id),
   });
+
+  // 2) Poll job status until it reaches a terminal state.
+  const status = useQuery({
+    queryKey: ["ingest-status", jobId],
+    queryFn: () => api.get(`/ingest/${jobId}`),
+    enabled: !!jobId,
+    refetchInterval: (query) =>
+      TERMINAL.has(query.state.data?.state) ? false : 1500,
+  });
+
+  const job = status.data;
+  const polling = !!jobId && (!job || !TERMINAL.has(job.state));
 
   const submit = (event) => {
     event.preventDefault();
-    if (!file || mutation.isPending) return;
-    mutation.mutate({ file, title });
+    if (!file || upload.isPending || polling) return;
+    setJobId(null);
+    upload.mutate({ file, title });
   };
 
   return (
@@ -34,8 +59,8 @@ export default function SourcesPage() {
       <div>
         <h2 className="text-base font-medium">Add a source</h2>
         <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-          Upload a PDF or Markdown file. It&apos;s parsed, chunked, embedded, and indexed so the
-          Ask page can answer from it — with citations.
+          Upload a PDF or Markdown file. Ingestion runs in the background — you&apos;ll see
+          live status as it&apos;s parsed, chunked, embedded, and indexed.
         </p>
       </div>
 
@@ -67,10 +92,14 @@ export default function SourcesPage() {
           />
         </div>
 
-        <Button type="submit" disabled={!file || mutation.isPending} className="w-full">
-          {mutation.isPending ? (
+        <Button type="submit" disabled={!file || upload.isPending || polling} className="w-full">
+          {upload.isPending ? (
             <>
-              <Loader2 className="size-4 animate-spin" /> Ingesting…
+              <Loader2 className="size-4 animate-spin" /> Uploading…
+            </>
+          ) : polling ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> {STATE_LABEL[job?.state] ?? "Queued"}…
             </>
           ) : (
             <>
@@ -80,30 +109,47 @@ export default function SourcesPage() {
         </Button>
       </form>
 
-      {mutation.isError && (
+      {upload.isError && (
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
-          <AlertTitle>Ingestion failed</AlertTitle>
-          <AlertDescription>{mutation.error?.message ?? "Upload failed."}</AlertDescription>
+          <AlertTitle>Upload failed</AlertTitle>
+          <AlertDescription>{upload.error?.message ?? "Could not enqueue ingestion."}</AlertDescription>
         </Alert>
       )}
 
-      {mutation.isSuccess && (
-        <div className="border-primary/30 bg-primary/5 rounded-lg border p-4">
+      {/* Live job status */}
+      {job && (
+        <div className="border-border bg-card rounded-lg border p-4">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="text-primary size-4" />
-            <p className="text-sm font-medium">Ingested</p>
+            {job.state === "succeeded" ? (
+              <CheckCircle2 className="text-primary size-4" />
+            ) : job.state === "failed" ? (
+              <AlertCircle className="size-4 text-red-400" />
+            ) : (
+              <Loader2 className="text-muted-foreground size-4 animate-spin" />
+            )}
+            <p className="text-sm font-medium">{STATE_LABEL[job.state] ?? job.state}</p>
+            <span className="text-muted-foreground/50 ml-auto font-mono text-[10px] uppercase tracking-wider">
+              {job.state}
+            </span>
           </div>
+
           <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-y-1 font-mono text-xs">
+            <dt className="text-muted-foreground/60">job_id</dt>
+            <dd className="text-foreground/90 truncate" title={job.job_id}>{job.job_id}</dd>
             <dt className="text-muted-foreground/60">document_id</dt>
-            <dd className="text-foreground/90 truncate" title={mutation.data.document_id}>
-              {mutation.data.document_id}
-            </dd>
-            <dt className="text-muted-foreground/60">chunks</dt>
-            <dd className="text-primary">{mutation.data.chunk_count}</dd>
-            <dt className="text-muted-foreground/60">type</dt>
-            <dd className="text-foreground/90">{mutation.data.source_type}</dd>
+            <dd className="text-foreground/90 truncate" title={job.document_id}>{job.document_id}</dd>
+            {job.state === "succeeded" && (
+              <>
+                <dt className="text-muted-foreground/60">chunks</dt>
+                <dd className="text-primary">{job.chunk_count}</dd>
+              </>
+            )}
           </dl>
+
+          {job.state === "failed" && job.error && (
+            <p className="mt-2 text-xs leading-relaxed text-red-400">{job.error}</p>
+          )}
         </div>
       )}
     </div>

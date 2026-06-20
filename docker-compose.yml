@@ -84,6 +84,29 @@ services:
       SALT: ${LANGFUSE_SALT:-change-me-salt}
       TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-false}
 
+  # --- Celery worker (async ingestion) ---
+  # Profiled: NOT started by `docker compose up` / `make up` (local dev runs the
+  # worker via `make dev`). Start the containerized worker with:
+  #   docker compose --profile worker up -d worker
+  worker:
+    build:
+      context: ./backend
+    container_name: sourcebound-worker
+    restart: unless-stopped
+    profiles: ["worker"]
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sourcebound}:${POSTGRES_PASSWORD:-sourcebound}@postgres:5432/${POSTGRES_DB:-sourcebound}
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
 volumes:
   postgres-data:
   qdrant-data:

@@ -3,7 +3,7 @@ BACKEND_PORT ?= 8000
 FRONTEND_DIR ?= frontend
 BACKEND_DIR ?= backend
 
-.PHONY: help up up-infra down logs ps restart clean dev dev-backend dev-frontend
+.PHONY: help up up-infra down logs ps restart clean dev dev-backend dev-frontend dev-worker
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -27,19 +27,23 @@ restart: ## Recreate all services
 clean: ## Stop services AND delete volumes (wipes all data)
 	$(COMPOSE) down -v
 
-up-infra: ## Start just Postgres + Qdrant (the infra `dev` needs)
-	$(COMPOSE) up -d postgres qdrant
+up-infra: ## Start the infra `dev` needs (Postgres + Qdrant + Redis)
+	$(COMPOSE) up -d postgres qdrant redis
 
-dev: up-infra ## Run backend + frontend together (one Ctrl-C stops both)
-	@echo "backend -> http://localhost:$(BACKEND_PORT)   frontend -> http://localhost:3000"
-	@echo "(Ctrl-C stops both)"
+dev: up-infra ## Run backend + worker + frontend together (one Ctrl-C stops all)
+	@echo "backend -> http://localhost:$(BACKEND_PORT)   frontend -> http://localhost:3000   (+ celery worker)"
+	@echo "(Ctrl-C stops all)"
 	@trap 'kill 0' EXIT INT TERM; \
 		( cd $(BACKEND_DIR) && .venv/bin/uvicorn app.main:app --reload --port $(BACKEND_PORT) ) & \
+		( cd $(BACKEND_DIR) && .venv/bin/celery -A app.workers.celery_app worker --loglevel=info --pool=solo ) & \
 		( cd $(FRONTEND_DIR) && npm run dev ) & \
 		wait
 
 dev-backend: up-infra ## Run only the backend (uvicorn --reload)
 	cd $(BACKEND_DIR) && .venv/bin/uvicorn app.main:app --reload --port $(BACKEND_PORT)
+
+dev-worker: up-infra ## Run only the Celery worker
+	cd $(BACKEND_DIR) && .venv/bin/celery -A app.workers.celery_app worker --loglevel=info --pool=solo
 
 dev-frontend: ## Run only the frontend (next dev)
 	cd $(FRONTEND_DIR) && npm run dev

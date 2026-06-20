@@ -46,6 +46,12 @@ class Settings(BaseSettings):
         """The sync (psycopg) form of database_url, for the synchronous ingestion path."""
         return self.database_url.replace("+asyncpg", "+psycopg")
 
+    # --- Redis (Celery broker + result backend) ---
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        validation_alias=AliasChoices("REDIS_URL", "SOURCEBOUND_REDIS_URL"),
+    )
+
     # --- Vector store (Qdrant) ---
     qdrant_url: str = Field(
         default="http://localhost:6333",

@@ -1,15 +1,27 @@
-"""Schemas for the ingestion endpoint."""
+"""Schemas for the (async) ingestion endpoints."""
 
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 
-class IngestResponse(BaseModel):
-    document_id: uuid.UUID = Field(..., description="ID of the persisted document.")
-    chunk_count: int = Field(..., description="Number of chunks embedded and indexed.")
-    source_type: str = Field(..., description="Detected source type (pdf | markdown).")
-    title: str | None = Field(None, description="Title, if provided.")
-    status: str = Field(..., description="Document status after ingestion.")
+class IngestEnqueuedResponse(BaseModel):
+    """Returned immediately from POST /ingest once the job is queued."""
+
+    job_id: uuid.UUID = Field(..., description="Poll GET /ingest/{job_id} for progress.")
+    document_id: uuid.UUID
+    state: str = Field(..., description="Job state (starts at 'queued').")
+
+
+class IngestJobStatus(BaseModel):
+    job_id: uuid.UUID
+    document_id: uuid.UUID
+    state: str = Field(..., description="queued | running | succeeded | failed")
+    error: str | None = None
+    chunk_count: int = Field(0, description="Chunks indexed so far / at completion.")
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
