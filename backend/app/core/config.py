@@ -64,6 +64,25 @@ class Settings(BaseSettings):
     chunk_size: int = 1000      # characters (~250 tokens at ~4 chars/token)
     chunk_overlap: int = 150    # ~15% of chunk_size, preserves context across boundaries
 
+    # --- Retrieval ---
+    query_top_k: int = 4        # default dense retrieval depth (overridable per request)
+
+    # --- LLM (OpenAI-compatible interface; default free local Ollama) ---
+    llm_provider: str = "ollama"   # ollama | groq | gemini | openai
+    llm_model: str | None = None   # None -> provider default
+    llm_temperature: float = 0.0   # deterministic; low temp curbs fabrication
+    llm_base_url: str | None = None  # override the provider's default base URL
+    ollama_base_url: str = "http://localhost:11434/v1"
+    groq_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("GROQ_API_KEY")
+    )
+    google_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("GOOGLE_API_KEY", "GEMINI_API_KEY")
+    )
+    openai_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("OPENAI_API_KEY")
+    )
+
     # --- CORS (comma-separated string or list) ---
     cors_origins: list[str] = ["http://localhost:3000"]
 

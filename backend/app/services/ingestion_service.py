@@ -98,6 +98,7 @@ def ingest_document(
                     "chunk_id": str(row.id),
                     "heading_path": chunk.heading_path,
                     "source_uri": source,
+                    "text": chunk.text,  # stored for retrieval context + citation snippets
                 },
             )
             for row, chunk, vector in zip(chunk_rows, chunks, vectors, strict=True)
