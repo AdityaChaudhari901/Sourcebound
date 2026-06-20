@@ -34,6 +34,7 @@ class Citation:
     source_uri: str
     chunk_id: str
     snippet: str
+    external: bool = False  # True = web source (source_uri is a URL), not an internal doc
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,12 @@ def _citations_for(answer: str, chunks) -> list[Citation]:
     if INSUFFICIENT_ANSWER.lower() in answer.lower():
         return []
     return [
-        Citation(source_uri=c.source_uri, chunk_id=c.chunk_id, snippet=_snippet(c.text))
+        Citation(
+            source_uri=c.source_uri,
+            chunk_id=c.chunk_id,
+            snippet=_snippet(c.text),
+            external=c.external,
+        )
         for c in chunks
     ]
 

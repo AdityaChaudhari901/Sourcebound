@@ -81,6 +81,22 @@ class Settings(BaseSettings):
     # --- Corrective loop ---
     max_query_retries: int = 2  # max query rewrites before degrading gracefully
 
+    # --- Web search fallback (Tavily; off unless enabled + key present) ---
+    web_search_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("WEB_SEARCH_ENABLED", "SOURCEBOUND_WEB_SEARCH_ENABLED"),
+    )
+    web_search_provider: str = "tavily"
+    web_search_max_results: int = 4
+    tavily_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("TAVILY_API_KEY")
+    )
+
+    @property
+    def web_search_configured(self) -> bool:
+        """True only when web fallback is enabled AND a key is present."""
+        return bool(self.web_search_enabled and self.tavily_api_key)
+
     # --- LLM (swappable provider interface; default free local Ollama) ---
     llm_provider: str = "ollama"   # ollama | groq | gemini | openai | vertex
     llm_model: str | None = None   # None -> provider default

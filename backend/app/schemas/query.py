@@ -16,6 +16,7 @@ class CitationOut(BaseModel):
     source_uri: str
     chunk_id: str
     snippet: str
+    external: bool = False  # True = external web source (source_uri is a URL)
 
 
 class QueryResponse(BaseModel):

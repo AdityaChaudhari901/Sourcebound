@@ -29,8 +29,9 @@ from app.rag.prompting import (
     build_user_prompt,
 )
 from app.rag.providers.llm import get_llm_provider
+from app.rag.providers.search import get_search_provider
 from app.rag.reranking import get_reranker
-from app.rag.retrievers import get_retriever
+from app.rag.retrievers import RetrievedChunk, get_retriever
 
 logger = get_logger(__name__)
 
@@ -87,18 +88,49 @@ def grade_documents(state: QueryState, config: RunnableConfig) -> dict:
     return {"documents_relevant": False}
 
 
-def decide_after_grade(state: QueryState) -> Literal["generate", "rewrite_query"]:
+def decide_after_grade(
+    state: QueryState,
+) -> Literal["generate", "rewrite_query", "web_search"]:
     """Conditional edge after grading:
 
-    - relevant docs            -> generate
-    - not relevant, under cap  -> rewrite_query (loop back to retrieve)
-    - not relevant, at the cap -> generate (degrade gracefully on best-available docs)
+    - relevant docs ...........................-> generate
+    - not relevant, under cap .................-> rewrite_query (loop back to retrieve)
+    - not relevant, at cap, web configured ....-> web_search (external fallback)
+    - not relevant, at cap, no web ............-> generate (degrade on best-available docs)
     """
     if state["documents_relevant"]:
         return "generate"
-    if state["retries"] >= settings.max_query_retries:
-        return "generate"
-    return "rewrite_query"
+    if state["retries"] < settings.max_query_retries:
+        return "rewrite_query"
+    return "web_search" if settings.web_search_configured else "generate"
+
+
+def web_search(state: QueryState, config: RunnableConfig) -> dict:
+    """Last-resort fallback: search the public web and use the results as context.
+
+    Fires only after the rewrite loop is exhausted and internal context is still
+    irrelevant. Results become `documents` marked ``external=True`` (source_uri is a
+    URL), so generation cites them and the response distinguishes them from internal
+    sources. Flows on to generate, which grounds + cites as usual.
+    """
+    results = get_search_provider().search(
+        state["question"], max_results=settings.web_search_max_results
+    )
+    documents = [
+        RetrievedChunk(
+            chunk_id=result.url,
+            document_id="web",
+            source_uri=result.url,
+            heading_path=result.title or None,
+            text=result.content,
+            score=0.0,
+            external=True,
+        )
+        for result in results
+        if result.content
+    ]
+    logger.info("graph_web_search", results=len(documents))
+    return {"documents": documents, "documents_relevant": bool(documents)}
 
 
 def rewrite_query(state: QueryState, config: RunnableConfig) -> dict:

@@ -34,7 +34,12 @@ async def query(request: QueryRequest) -> QueryResponse:
     return QueryResponse(
         answer=result.answer,
         citations=[
-            CitationOut(source_uri=c.source_uri, chunk_id=c.chunk_id, snippet=c.snippet)
+            CitationOut(
+                source_uri=c.source_uri,
+                chunk_id=c.chunk_id,
+                snippet=c.snippet,
+                external=c.external,
+            )
             for c in result.citations
         ],
     )
@@ -62,6 +67,7 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
                                     "source_uri": c.source_uri,
                                     "chunk_id": c.chunk_id,
                                     "snippet": c.snippet,
+                                    "external": c.external,
                                 }
                                 for c in event.citations
                             ],

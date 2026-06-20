@@ -35,6 +35,7 @@ class RetrievedChunk:
     heading_path: str | None
     text: str
     score: float  # cosine/BM25 for single retrievers; fused RRF score for hybrid
+    external: bool = False  # True for web-search results (source_uri is a URL)
 
 
 @runtime_checkable

@@ -29,4 +29,5 @@ pypdf==5.1.0                    # PDF text extraction
 fastembed==0.5.1                # open BGE embeddings (ONNX, no torch)
 qdrant-client==1.12.1           # vector upsert + dense retrieval
 openai==1.59.6                  # OpenAI-compatible client (Groq/Gemini/Ollama/OpenAI)
+tavily-python==0.5.0            # web-search fallback provider
 google-genai==2.9.0             # Gemini on Vertex AI (ADC; bills GCP credits)

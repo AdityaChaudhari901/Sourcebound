@@ -1,14 +1,16 @@
-"""The compiled query graph (corrective RAG with a bounded rewrite loop).
+"""The compiled query graph (corrective RAG with rewrite loop + web fallback).
 
     START -> retrieve -> grade_documents -> (relevant?)
         ├─ relevant ............................-> generate -> END
         ├─ not relevant & retries < cap ........-> rewrite_query -> retrieve  (loop)
-        └─ not relevant & retries >= cap .......-> generate -> END  (graceful degrade)
+        ├─ not relevant & at cap & web on ......-> web_search -> generate -> END
+        └─ not relevant & at cap & no web ......-> generate -> END  (graceful degrade)
 
 The loop (retrieve -> grade -> rewrite -> retrieve) is what makes this a *graph*,
 not a chain. `retries` (capped by settings.max_query_retries) guarantees it
-terminates: after the cap we stop rewriting and generate from the best-available
-context instead of looping forever.
+terminates. When the loop is exhausted and web search is configured, web_search is
+the external escape hatch; its results flow into the same generate node, cited as
+external URLs.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from app.graphs.nodes import (
     grade_documents,
     retrieve,
     rewrite_query,
+    web_search,
 )
 from app.graphs.state import QueryState
 
@@ -33,15 +36,19 @@ def build_query_graph() -> CompiledStateGraph:
     builder.add_node("retrieve", retrieve)
     builder.add_node("grade_documents", grade_documents)
     builder.add_node("rewrite_query", rewrite_query)
+    builder.add_node("web_search", web_search)
     builder.add_node("generate", generate)
 
     builder.add_edge(START, "retrieve")
     builder.add_edge("retrieve", "grade_documents")
-    # Conditional edge: router reads state (relevance + retries) and picks the next node.
+    # Conditional edge: router reads state (relevance + retries + web config).
     builder.add_conditional_edges(
-        "grade_documents", decide_after_grade, ["generate", "rewrite_query"]
+        "grade_documents",
+        decide_after_grade,
+        ["generate", "rewrite_query", "web_search"],
     )
     builder.add_edge("rewrite_query", "retrieve")  # the loop back
+    builder.add_edge("web_search", "generate")  # web results -> grounded generation
     builder.add_edge("generate", END)
     return builder.compile()
 
