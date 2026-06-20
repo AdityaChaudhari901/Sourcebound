@@ -57,6 +57,7 @@ def _now() -> datetime:
 def _index_document(
     document_id: uuid.UUID,
     *,
+    tenant_id: uuid.UUID,
     filename: str,
     content: bytes,
     content_type: str,
@@ -100,6 +101,7 @@ def _index_document(
                     ),
                 },
                 payload={
+                    "tenant_id": str(tenant_id),  # the isolation key; filtered at query time
                     "document_id": str(document_id),
                     "chunk_id": str(row.id),
                     "heading_path": chunk.heading_path,
@@ -136,6 +138,7 @@ def process_ingestion_job(
         if job is None or document is None:
             logger.error("ingest_job_missing", job_id=job_id, document_id=document_id)
             return
+        tenant_id = document.tenant_id  # stamped into every vector payload
         job.state = IngestionState.RUNNING
         job.started_at = _now()
         document.status = DocumentStatus.PROCESSING
@@ -144,6 +147,7 @@ def process_ingestion_job(
     try:
         chunk_count = _index_document(
             doc_uuid,
+            tenant_id=tenant_id,
             filename=filename,
             content=content,
             content_type=content_type,

@@ -38,8 +38,12 @@ logger = get_logger(__name__)
 
 def retrieve(state: QueryState, config: RunnableConfig) -> dict:
     question = state["question"]
-    top_k = (config.get("configurable") or {}).get("k") or settings.query_top_k
-    candidates = get_retriever().retrieve(question, k=settings.retrieve_top_n)
+    configurable = config.get("configurable") or {}
+    top_k = configurable.get("k") or settings.query_top_k
+    tenant_id = configurable["tenant_id"]  # required — no tenant, no retrieval
+    candidates = get_retriever().retrieve(
+        question, k=settings.retrieve_top_n, tenant_id=tenant_id
+    )
     documents = get_reranker().rerank(question, candidates, top_k=top_k)
     logger.info("graph_retrieve", candidates=len(candidates), reranked=len(documents))
     return {"documents": documents}

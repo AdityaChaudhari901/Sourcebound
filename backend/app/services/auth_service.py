@@ -20,14 +20,20 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.database.models import ApiKey, User
+from app.database.models import ApiKey, Tenant, User
 
 
 async def signup(db: AsyncSession, *, email: str, password: str) -> User:
     existing = await db.scalar(select(User).where(User.email == email))
     if existing is not None:
         raise ConflictError("An account with that email already exists.")
-    user = User(email=email, password_hash=hash_password(password))
+    # Each new account gets its own workspace (tenant). Membership/invites are a
+    # later step; for now signup provisions a fresh isolated tenant.
+    local_part = email.split("@", 1)[0]
+    tenant = Tenant(name=f"{local_part}'s workspace")
+    db.add(tenant)
+    await db.flush()
+    user = User(tenant_id=tenant.id, email=email, password_hash=hash_password(password))
     db.add(user)
     await db.commit()
     await db.refresh(user)

@@ -24,7 +24,12 @@ from app.rag.providers.embeddings import (
     get_embedding_provider,
     get_sparse_embedding_provider,
 )
-from app.vectorstore.qdrant import DENSE_VECTOR, SPARSE_VECTOR, get_qdrant_client
+from app.vectorstore.qdrant import (
+    DENSE_VECTOR,
+    SPARSE_VECTOR,
+    get_qdrant_client,
+    tenant_filter,
+)
 
 
 @dataclass(frozen=True)
@@ -40,7 +45,9 @@ class RetrievedChunk:
 
 @runtime_checkable
 class Retriever(Protocol):
-    def retrieve(self, query: str, *, k: int) -> list[RetrievedChunk]: ...
+    # tenant_id is required (no default) — there is no way to retrieve without a
+    # tenant filter, so a query can never read another tenant's vectors.
+    def retrieve(self, query: str, *, k: int, tenant_id: str) -> list[RetrievedChunk]: ...
 
 
 def _point_to_chunk(point) -> RetrievedChunk:
@@ -56,14 +63,15 @@ def _point_to_chunk(point) -> RetrievedChunk:
 
 
 class DenseRetriever:
-    """Semantic retrieval over BGE embeddings."""
+    """Semantic retrieval over BGE embeddings (tenant-filtered)."""
 
-    def retrieve(self, query: str, *, k: int) -> list[RetrievedChunk]:
+    def retrieve(self, query: str, *, k: int, tenant_id: str) -> list[RetrievedChunk]:
         vector = get_embedding_provider().embed_query(query)
         response = get_qdrant_client().query_points(
             collection_name=settings.qdrant_collection,
             query=vector,
             using=DENSE_VECTOR,
+            query_filter=tenant_filter(tenant_id),
             limit=k,
             with_payload=True,
         )
@@ -71,14 +79,15 @@ class DenseRetriever:
 
 
 class SparseRetriever:
-    """Lexical retrieval over BM25 sparse vectors."""
+    """Lexical retrieval over BM25 sparse vectors (tenant-filtered)."""
 
-    def retrieve(self, query: str, *, k: int) -> list[RetrievedChunk]:
+    def retrieve(self, query: str, *, k: int, tenant_id: str) -> list[RetrievedChunk]:
         sparse = get_sparse_embedding_provider().embed_query(query)
         response = get_qdrant_client().query_points(
             collection_name=settings.qdrant_collection,
             query=models.SparseVector(indices=sparse.indices, values=sparse.values),
             using=SPARSE_VECTOR,
+            query_filter=tenant_filter(tenant_id),
             limit=k,
             with_payload=True,
         )
@@ -121,10 +130,10 @@ class HybridRetriever:
         self._rrf_k = rrf_k
         self._prefetch = prefetch
 
-    def retrieve(self, query: str, *, k: int) -> list[RetrievedChunk]:
+    def retrieve(self, query: str, *, k: int, tenant_id: str) -> list[RetrievedChunk]:
         depth = max(k, self._prefetch)
-        dense_hits = self._dense.retrieve(query, k=depth)
-        sparse_hits = self._sparse.retrieve(query, k=depth)
+        dense_hits = self._dense.retrieve(query, k=depth, tenant_id=tenant_id)
+        sparse_hits = self._sparse.retrieve(query, k=depth, tenant_id=tenant_id)
         return reciprocal_rank_fusion(
             [(dense_hits, self._dense_weight), (sparse_hits, self._sparse_weight)],
             rrf_k=self._rrf_k,

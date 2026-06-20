@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 // `href: null` = not built yet (inert placeholder). `code` is the mono shorthand.
 const NAV_ITEMS = [
@@ -40,9 +41,14 @@ export function AppShell({ children }) {
           <span className="text-sm font-semibold tracking-tight">Sourcebound</span>
         </div>
 
+        {/* Active workspace switcher */}
+        <div className="border-border border-b py-1">
+          <WorkspaceSwitcher />
+        </div>
+
         <nav className="flex-1 px-3 py-4" aria-label="Primary">
           <p className="text-muted-foreground/70 px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.18em]">
-            Workspace
+            Navigation
           </p>
           <ul className="space-y-0.5">
             {NAV_ITEMS.map(({ label, code, icon: Icon, href }) => {

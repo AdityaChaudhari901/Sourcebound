@@ -43,7 +43,11 @@ async def ingest(
 
     source = source_uri or file.filename or "unknown"
     document = Document(
-        source_type=source_type, uri=source, title=title, status=DocumentStatus.PENDING
+        tenant_id=principal.tenant_id,
+        source_type=source_type,
+        uri=source,
+        title=title,
+        status=DocumentStatus.PENDING,
     )
     db.add(document)
     await db.flush()  # assign document.id
@@ -70,6 +74,11 @@ async def ingest(
 async def ingest_status(job_id: UUID, principal: CurrentPrincipal, db: DbSession) -> IngestJobStatus:
     job = await db.get(IngestionJob, job_id)
     if job is None:
+        raise NotFoundError(f"Ingestion job {job_id} not found")
+
+    # Tenant isolation: confirm the job's document belongs to the caller's tenant.
+    document = await db.get(Document, job.document_id)
+    if document is None or document.tenant_id != principal.tenant_id:
         raise NotFoundError(f"Ingestion job {job_id} not found")
 
     chunk_count = await db.scalar(

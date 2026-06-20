@@ -24,9 +24,16 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class WorkspaceOut(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     email: str
+    tenant_id: uuid.UUID
+    workspace: WorkspaceOut
 
 
 class ApiKeyCreateRequest(BaseModel):

@@ -72,7 +72,21 @@ def _enum_column(py_enum: type[enum.Enum], *, length: int) -> SAEnum:
     )
 
 
-# --- Auth models ----------------------------------------------------------------
+# --- Tenancy + auth models ------------------------------------------------------
+
+
+class Tenant(Base):
+    """A workspace. Every user, document, and vector belongs to exactly one."""
+
+    __tablename__ = "tenants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class User(Base):
@@ -80,6 +94,9 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     email: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)  # argon2; never plaintext
@@ -90,11 +107,15 @@ class User(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    tenant: Mapped[Tenant] = relationship()
     api_keys: Mapped[list[ApiKey]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
     )
 
-    __table_args__ = (Index("uq_users_email", "email", unique=True),)
+    __table_args__ = (
+        Index("uq_users_email", "email", unique=True),
+        Index("ix_users_tenant_id", "tenant_id"),
+    )
 
 
 class ApiKey(Base):
@@ -132,6 +153,9 @@ class Document(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, primary_key=True, server_default=text("gen_random_uuid()")
     )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
     source_type: Mapped[SourceType] = mapped_column(
         _enum_column(SourceType, length=16), nullable=False
     )
@@ -159,7 +183,8 @@ class Document(Base):
 
     __table_args__ = (
         Index("ix_documents_uri", "uri"),                         # dedupe / staleness lookup
-        Index("ix_documents_status_created", "status", "created_at"),  # status queue + sort
+        # Tenant-scoped listing/queue (tenant_id leads so every query filters by it).
+        Index("ix_documents_tenant_status_created", "tenant_id", "status", "created_at"),
     )
 
 

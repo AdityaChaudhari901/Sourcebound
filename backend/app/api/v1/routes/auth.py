@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, status
 
 from app.api.deps import CurrentPrincipal
+from app.database.models import Tenant
 from app.database.session import DbSession
 from app.schemas.auth import (
     ApiKeyCreatedResponse,
@@ -16,6 +17,7 @@ from app.schemas.auth import (
     SignupRequest,
     TokenResponse,
     UserOut,
+    WorkspaceOut,
 )
 from app.services import auth_service
 
@@ -35,8 +37,21 @@ async def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
 
 
 @router.get("/me", response_model=UserOut)
-async def me(principal: CurrentPrincipal) -> UserOut:
-    return UserOut(id=principal.user_id, email=principal.email)
+async def me(principal: CurrentPrincipal, db: DbSession) -> UserOut:
+    tenant = await db.get(Tenant, principal.tenant_id)
+    return UserOut(
+        id=principal.user_id,
+        email=principal.email,
+        tenant_id=principal.tenant_id,
+        workspace=WorkspaceOut(id=tenant.id, name=tenant.name),
+    )
+
+
+@router.get("/workspaces", response_model=list[WorkspaceOut])
+async def workspaces(principal: CurrentPrincipal, db: DbSession) -> list[WorkspaceOut]:
+    # One workspace per user for now; this is the seam for multi-membership later.
+    tenant = await db.get(Tenant, principal.tenant_id)
+    return [WorkspaceOut(id=tenant.id, name=tenant.name)]
 
 
 @router.post(

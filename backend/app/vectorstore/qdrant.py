@@ -41,6 +41,23 @@ def ensure_collection(client: QdrantClient, name: str, dense_size: int) -> None:
                 SPARSE_VECTOR: models.SparseVectorParams(modifier=models.Modifier.IDF)
             },
         )
+        # Index tenant_id so the per-query payload filter is fast at scale.
+        client.create_payload_index(
+            collection_name=name,
+            field_name="tenant_id",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
+
+
+def tenant_filter(tenant_id: str) -> models.Filter:
+    """Qdrant filter that restricts a search to a single tenant's vectors."""
+    return models.Filter(
+        must=[
+            models.FieldCondition(
+                key="tenant_id", match=models.MatchValue(value=tenant_id)
+            )
+        ]
+    )
 
 
 def upsert_points(

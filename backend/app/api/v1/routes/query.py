@@ -31,7 +31,9 @@ router = APIRouter(prefix="/query", tags=["query"])
 
 @router.post("", response_model=QueryResponse)
 async def query(request: QueryRequest, principal: CurrentPrincipal) -> QueryResponse:
-    result = await run_in_threadpool(answer_question, request.question, k=request.k)
+    result = await run_in_threadpool(
+        answer_question, request.question, tenant_id=str(principal.tenant_id), k=request.k
+    )
     return QueryResponse(
         answer=result.answer,
         citations=[
@@ -53,9 +55,11 @@ def _sse(event: str, data: dict) -> str:
 
 @router.post("/stream")
 async def query_stream(request: QueryRequest, principal: CurrentPrincipal) -> StreamingResponse:
+    tenant_id = str(principal.tenant_id)
+
     def event_stream() -> Iterator[str]:
         try:
-            for event in stream_answer(request.question, k=request.k):
+            for event in stream_answer(request.question, tenant_id=tenant_id, k=request.k):
                 if isinstance(event, TokenChunk):
                     yield _sse("token", {"text": event.text})
                 elif isinstance(event, FinalResult):

@@ -62,9 +62,11 @@ def _snippet(text: str) -> str:
     return text if len(text) <= _SNIPPET_CHARS else text[:_SNIPPET_CHARS].rstrip() + "…"
 
 
-def _retrieve_and_rank(question: str, top_k: int):
-    """Stage 1 (hybrid, top-N) -> stage 2 (cross-encoder rerank, top-k)."""
-    candidates = get_retriever().retrieve(question, k=settings.retrieve_top_n)
+def _retrieve_and_rank(question: str, top_k: int, *, tenant_id: str):
+    """Stage 1 (hybrid, top-N, tenant-filtered) -> stage 2 (rerank, top-k)."""
+    candidates = get_retriever().retrieve(
+        question, k=settings.retrieve_top_n, tenant_id=tenant_id
+    )
     return candidates, get_reranker().rerank(question, candidates, top_k=top_k)
 
 
@@ -83,13 +85,11 @@ def _citations_for(answer: str, chunks) -> list[Citation]:
     ]
 
 
-def answer_question(question: str, *, k: int | None = None) -> QueryResult:
-    """Non-streaming: run the compiled query graph, then build citations.
+def answer_question(question: str, *, tenant_id: str, k: int | None = None) -> QueryResult:
+    """Non-streaming: run the compiled query graph (tenant-scoped), then cite.
 
-    The graph (retrieve -> generate) owns the pipeline; this service shapes the
-    final state into the API result. Behavior is identical to the previous linear
-    implementation — citations come from the graph's documents and are dropped on
-    an insufficiency answer.
+    tenant_id flows through the graph config to the retrieve node, which filters
+    Qdrant by it — so the graph can only ever see this tenant's vectors.
     """
     final_state = get_query_graph().invoke(
         {
@@ -99,7 +99,7 @@ def answer_question(question: str, *, k: int | None = None) -> QueryResult:
             "generation": "",
             "retries": 0,
         },
-        config={"configurable": {"k": k or settings.query_top_k}},
+        config={"configurable": {"k": k or settings.query_top_k, "tenant_id": tenant_id}},
     )
     documents = final_state["documents"]
     answer = final_state["generation"]
@@ -114,15 +114,15 @@ def answer_question(question: str, *, k: int | None = None) -> QueryResult:
 
 
 def stream_answer(
-    question: str, *, k: int | None = None
+    question: str, *, tenant_id: str, k: int | None = None
 ) -> Iterator[TokenChunk | FinalResult]:
     """Streaming: yield answer tokens as they generate, then a final citations event.
 
-    Same retrieve -> rerank -> ground pipeline as answer_question; only generation
-    differs. Citations are emitted at the end because they're dropped when the model
-    declares the context insufficient (only known once the full answer is in).
+    Tenant-scoped retrieval, same as answer_question; only generation differs.
     """
-    candidates, chunks = _retrieve_and_rank(question, k or settings.query_top_k)
+    candidates, chunks = _retrieve_and_rank(
+        question, k or settings.query_top_k, tenant_id=tenant_id
+    )
     if not chunks:
         logger.info("query_no_context", question_len=len(question))
         yield FinalResult(answer=INSUFFICIENT_ANSWER, citations=[])

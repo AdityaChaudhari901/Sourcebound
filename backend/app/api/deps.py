@@ -32,7 +32,9 @@ async def get_current_principal(
         user = await db.get(User, user_id)
         if user is None or not user.is_active:
             raise UnauthorizedError("Account not found or disabled")
-        return Principal(user_id=user.id, email=user.email, auth_method="jwt")
+        return Principal(
+            user_id=user.id, tenant_id=user.tenant_id, email=user.email, auth_method="jwt"
+        )
 
     # 2) API key (programmatic). Look up by sha256 hash; reject revoked keys.
     if x_api_key:
@@ -50,7 +52,11 @@ async def get_current_principal(
         api_key.last_used_at = datetime.now(timezone.utc)
         await db.commit()
         return Principal(
-            user_id=user.id, email=user.email, auth_method="api_key", api_key_id=api_key.id
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            email=user.email,
+            auth_method="api_key",
+            api_key_id=api_key.id,
         )
 
     raise UnauthorizedError("Authentication required")

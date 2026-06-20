@@ -98,6 +98,7 @@ def generate_api_key() -> GeneratedApiKey:
 @dataclass(frozen=True)
 class Principal:
     user_id: uuid.UUID
+    tenant_id: uuid.UUID  # resolved from the DB (never the token) — the isolation boundary
     email: str
     auth_method: Literal["jwt", "api_key"]
     api_key_id: uuid.UUID | None = None
