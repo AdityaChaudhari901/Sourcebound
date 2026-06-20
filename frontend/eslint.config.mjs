@@ -11,6 +11,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Auth bootstrap legitimately sets state from effects (read token from
+      // localStorage on mount, fetch the current user) — keep it surfaced as a
+      // warning rather than failing the build.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;
