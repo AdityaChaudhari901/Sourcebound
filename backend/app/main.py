@@ -20,6 +20,7 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware
 from app.core.observability import configure_langfuse, shutdown_langfuse
+from app.database.session import dispose_engine
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Other resource init (db pool, redis, qdrant) is wired in later slices.
     yield
     shutdown_langfuse()  # flush buffered traces before exit
+    await dispose_engine()  # close the DB connection pool
     logger.info("app_shutdown", service=settings.app_name)
 
 

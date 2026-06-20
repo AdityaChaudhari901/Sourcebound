@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     # --- API ---
     api_v1_prefix: str = "/api/v1"
 
+    # --- Database (async SQLAlchemy / asyncpg) ---
+    # Standard DATABASE_URL name (unprefixed) so it matches docker-compose docs.
+    database_url: str = Field(
+        default="postgresql+asyncpg://sourcebound:sourcebound@localhost:5432/sourcebound",
+        validation_alias=AliasChoices("DATABASE_URL", "SOURCEBOUND_DATABASE_URL"),
+    )
+    db_echo: bool = False
+
     # --- CORS (comma-separated string or list) ---
     cors_origins: list[str] = ["http://localhost:3000"]
 
