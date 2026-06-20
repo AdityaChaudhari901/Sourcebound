@@ -14,20 +14,32 @@ from qdrant_client import QdrantClient, models
 
 from app.core.config import settings
 
+# Named vectors: dense (semantic) + sparse (BM25 lexical) for hybrid retrieval.
+DENSE_VECTOR = "dense"
+SPARSE_VECTOR = "sparse"
+
 
 @lru_cache(maxsize=1)
 def get_qdrant_client() -> QdrantClient:
     return QdrantClient(url=settings.qdrant_url)
 
 
-def ensure_collection(client: QdrantClient, name: str, vector_size: int) -> None:
-    """Create the collection if it doesn't exist (cosine distance)."""
+def ensure_collection(client: QdrantClient, name: str, dense_size: int) -> None:
+    """Create the hybrid collection if it doesn't exist.
+
+    Dense = cosine over BGE embeddings; sparse = BM25 with IDF applied server-side.
+    """
     if not client.collection_exists(name):
         client.create_collection(
             collection_name=name,
-            vectors_config=models.VectorParams(
-                size=vector_size, distance=models.Distance.COSINE
-            ),
+            vectors_config={
+                DENSE_VECTOR: models.VectorParams(
+                    size=dense_size, distance=models.Distance.COSINE
+                )
+            },
+            sparse_vectors_config={
+                SPARSE_VECTOR: models.SparseVectorParams(modifier=models.Modifier.IDF)
+            },
         )
 
 

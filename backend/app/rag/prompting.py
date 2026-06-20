@@ -8,7 +8,7 @@ of guessing. ``INSUFFICIENT_ANSWER`` is matched downstream to drop citations.
 
 from __future__ import annotations
 
-from app.rag.retrieval import RetrievedChunk
+from app.rag.retrievers import RetrievedChunk
 
 INSUFFICIENT_ANSWER = (
     "I don't have enough information in the provided sources to answer that."

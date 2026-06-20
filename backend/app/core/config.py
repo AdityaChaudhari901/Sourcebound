@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     # --- Embeddings ---
     embedding_provider: str = "fastembed"  # interface key; only "fastembed" wired for now
     embedding_model: str = "BAAI/bge-small-en-v1.5"  # open BGE, 384-dim
+    sparse_embedding_model: str = "Qdrant/bm25"  # BM25 sparse vectors (lexical)
+
+    # --- Retrieval mode + hybrid fusion (weighted Reciprocal Rank Fusion) ---
+    retriever_mode: str = "hybrid"        # hybrid | dense | sparse
+    hybrid_dense_weight: float = 1.0      # weight on dense (semantic) ranking in RRF
+    hybrid_sparse_weight: float = 1.0     # weight on sparse (BM25/lexical) ranking in RRF
+    hybrid_rrf_k: int = 60                # RRF rank constant (standard default)
+    hybrid_prefetch_limit: int = 20       # candidates pulled from each retriever before fusing
 
     # --- Chunking (tune against an eval set later) ---
     chunk_size: int = 1000      # characters (~250 tokens at ~4 chars/token)

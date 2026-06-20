@@ -19,7 +19,7 @@ from app.rag.prompting import (
     build_user_prompt,
 )
 from app.rag.providers.llm import get_llm_provider
-from app.rag.retrieval import retrieve
+from app.rag.retrievers import get_retriever
 
 logger = get_logger(__name__)
 
@@ -45,7 +45,7 @@ def _snippet(text: str) -> str:
 
 
 def answer_question(question: str, *, k: int | None = None) -> QueryResult:
-    chunks = retrieve(question, k=k or settings.query_top_k)
+    chunks = get_retriever().retrieve(question, k=k or settings.query_top_k)
 
     if not chunks:
         logger.info("query_no_context", question_len=len(question))

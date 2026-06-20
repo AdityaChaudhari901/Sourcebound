@@ -23,8 +23,13 @@ from app.database.models import Chunk, Document, DocumentStatus, SourceType
 from app.database.session import sync_session
 from app.rag.chunking import chunk_blocks
 from app.rag.parsing import parse
-from app.rag.providers.embeddings import get_embedding_provider
+from app.rag.providers.embeddings import (
+    get_embedding_provider,
+    get_sparse_embedding_provider,
+)
 from app.vectorstore.qdrant import (
+    DENSE_VECTOR,
+    SPARSE_VECTOR,
     delete_points,
     ensure_collection,
     get_qdrant_client,
@@ -61,8 +66,11 @@ def ingest_document(
 
     source = source_uri or filename or "unknown"
 
+    texts = [chunk.text for chunk in chunks]
     embedder = get_embedding_provider()
-    vectors = embedder.embed_documents([chunk.text for chunk in chunks])
+    sparse_embedder = get_sparse_embedding_provider()
+    dense_vectors = embedder.embed_documents(texts)
+    sparse_vectors = sparse_embedder.embed_documents(texts)
 
     qdrant = get_qdrant_client()
     ensure_collection(qdrant, settings.qdrant_collection, embedder.dimension)
@@ -92,7 +100,12 @@ def ingest_document(
         points = [
             models.PointStruct(
                 id=str(row.qdrant_point_id),
-                vector=vector,
+                vector={
+                    DENSE_VECTOR: dense_vec,
+                    SPARSE_VECTOR: models.SparseVector(
+                        indices=sparse_vec.indices, values=sparse_vec.values
+                    ),
+                },
                 payload={
                     "document_id": str(document.id),
                     "chunk_id": str(row.id),
@@ -101,7 +114,9 @@ def ingest_document(
                     "text": chunk.text,  # stored for retrieval context + citation snippets
                 },
             )
-            for row, chunk, vector in zip(chunk_rows, chunks, vectors, strict=True)
+            for row, chunk, dense_vec, sparse_vec in zip(
+                chunk_rows, chunks, dense_vectors, sparse_vectors, strict=True
+            )
         ]
 
         upsert_points(qdrant, settings.qdrant_collection, points)

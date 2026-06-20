@@ -11,6 +11,7 @@ methods are kept separate and must use the same model.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
@@ -64,3 +65,48 @@ def get_embedding_provider() -> EmbeddingProvider:
     if settings.embedding_provider == "fastembed":
         return FastEmbedProvider(settings.embedding_model)
     raise ValueError(f"Unknown embedding provider: {settings.embedding_provider!r}")
+
+
+# --- Sparse (BM25) embeddings for lexical retrieval --------------------------------
+
+
+@dataclass(frozen=True)
+class SparseVectorData:
+    """Provider-agnostic sparse vector (term index -> weight)."""
+
+    indices: list[int]
+    values: list[float]
+
+
+@runtime_checkable
+class SparseEmbeddingProvider(Protocol):
+    model_name: str
+
+    def embed_documents(self, texts: list[str]) -> list[SparseVectorData]: ...
+
+    def embed_query(self, text: str) -> SparseVectorData: ...
+
+
+class FastEmbedSparseProvider:
+    """BM25 sparse embeddings via fastembed (term frequencies; IDF applied in Qdrant)."""
+
+    def __init__(self, model_name: str) -> None:
+        from fastembed import SparseTextEmbedding
+
+        self.model_name = model_name
+        self._model = SparseTextEmbedding(model_name=model_name)
+
+    def embed_documents(self, texts: list[str]) -> list[SparseVectorData]:
+        return [
+            SparseVectorData(indices=e.indices.tolist(), values=e.values.tolist())
+            for e in self._model.embed(texts)
+        ]
+
+    def embed_query(self, text: str) -> SparseVectorData:
+        e = next(iter(self._model.query_embed(text)))
+        return SparseVectorData(indices=e.indices.tolist(), values=e.values.tolist())
+
+
+@lru_cache(maxsize=1)
+def get_sparse_embedding_provider() -> SparseEmbeddingProvider:
+    return FastEmbedSparseProvider(settings.sparse_embedding_model)
