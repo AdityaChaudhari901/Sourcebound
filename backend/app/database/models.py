@@ -272,6 +272,10 @@ class Message(Base):
     # Assistant messages keep their citations for thread replay (list of dicts).
     citations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)  # answer wall time
+    # Trace signals (assistant messages): which corrective paths fired + verify score.
+    grounding: Mapped[float | None] = mapped_column(Float, nullable=True)
+    self_corrected: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    used_web_search: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

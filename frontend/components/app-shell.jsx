@@ -20,8 +20,8 @@ const NAV_ITEMS = [
   { label: "Dashboard", code: "dsh", icon: LayoutGrid, href: "/" },
   { label: "Ask", code: "ask", icon: MessageSquareText, href: "/ask" },
   { label: "Sources", code: "src", icon: Database, href: "/sources" },
-  { label: "Evaluations", code: "eval", icon: FlaskConical, href: null },
-  { label: "Traces", code: "trc", icon: Activity, href: null },
+  { label: "Evaluations", code: "eval", icon: FlaskConical, href: "/evaluations" },
+  { label: "Traces", code: "trc", icon: Activity, href: "/traces" },
   { label: "Settings", code: "cfg", icon: Settings2, href: null },
 ];
 

@@ -78,6 +78,9 @@ async def add_message(
     content: str,
     citations: list | None = None,
     latency_ms: int | None = None,
+    grounding: float | None = None,
+    self_corrected: bool = False,
+    used_web_search: bool = False,
 ) -> Message:
     message = Message(
         conversation_id=conversation_id,
@@ -85,6 +88,9 @@ async def add_message(
         content=content,
         citations=citations,
         latency_ms=latency_ms,
+        grounding=grounding,
+        self_corrected=self_corrected,
+        used_web_search=used_web_search,
     )
     db.add(message)
     await db.flush()
@@ -98,6 +104,9 @@ def add_message_sync(
     content: str,
     citations: list | None = None,
     latency_ms: int | None = None,
+    grounding: float | None = None,
+    self_corrected: bool = False,
+    used_web_search: bool = False,
 ) -> uuid.UUID:
     """Persist a message from synchronous code (the streaming generator)."""
     with sync_session() as db:
@@ -107,6 +116,9 @@ def add_message_sync(
             content=content,
             citations=citations,
             latency_ms=latency_ms,
+            grounding=grounding,
+            self_corrected=self_corrected,
+            used_web_search=used_web_search,
         )
         db.add(message)
         db.commit()

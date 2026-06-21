@@ -21,6 +21,8 @@ from qdrant_client import models
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from sqlalchemy import select
+
 from app.database.models import (
     Chunk,
     Document,
@@ -177,3 +179,81 @@ def process_ingestion_job(
             document.status = DocumentStatus.READY
         db.commit()
     logger.info("ingest_job_done", job_id=job_id, chunk_count=chunk_count)
+
+
+def reindex_document(*, job_id: str, document_id: str) -> None:
+    """Re-embed a document's existing chunks and re-upsert them (same point ids).
+
+    We don't store source files, so 're-ingest' means re-index: pull each chunk's
+    text from Qdrant, re-embed (dense + sparse), and overwrite the vectors. Useful
+    after an embedding-model or chunking change.
+    """
+    job_uuid = uuid.UUID(job_id)
+    doc_uuid = uuid.UUID(document_id)
+
+    with sync_session() as db:
+        job = db.get(IngestionJob, job_uuid)
+        document = db.get(Document, doc_uuid)
+        if job is None or document is None:
+            logger.error("reindex_job_missing", job_id=job_id)
+            return
+        point_ids = [
+            str(c.qdrant_point_id)
+            for c in db.scalars(
+                select(Chunk).where(Chunk.document_id == doc_uuid)
+            ).all()
+            if c.qdrant_point_id is not None
+        ]
+        job.state = IngestionState.RUNNING
+        job.started_at = _now()
+        document.status = DocumentStatus.PROCESSING
+        db.commit()
+
+    try:
+        qdrant = get_qdrant_client()
+        existing = qdrant.retrieve(settings.qdrant_collection, ids=point_ids, with_payload=True)
+        texts = [p.payload.get("text", "") for p in existing]
+        embedder = get_embedding_provider()
+        sparse_embedder = get_sparse_embedding_provider()
+        dense_vectors = embedder.embed_documents(texts)
+        sparse_vectors = sparse_embedder.embed_documents(texts)
+        ensure_collection(qdrant, settings.qdrant_collection, embedder.dimension)
+        points = [
+            models.PointStruct(
+                id=p.id,
+                vector={
+                    DENSE_VECTOR: dense_vec,
+                    SPARSE_VECTOR: models.SparseVector(
+                        indices=sparse_vec.indices, values=sparse_vec.values
+                    ),
+                },
+                payload=p.payload,  # unchanged metadata; only the vectors refresh
+            )
+            for p, dense_vec, sparse_vec in zip(existing, dense_vectors, sparse_vectors, strict=True)
+        ]
+        if points:
+            upsert_points(qdrant, settings.qdrant_collection, points)
+    except Exception as exc:  # noqa: BLE001
+        with sync_session() as db:
+            job = db.get(IngestionJob, job_uuid)
+            document = db.get(Document, doc_uuid)
+            if job is not None:
+                job.state = IngestionState.FAILED
+                job.error = str(exc)[:1000]
+                job.finished_at = _now()
+            if document is not None:
+                document.status = DocumentStatus.FAILED
+            db.commit()
+        logger.error("reindex_job_failed", job_id=job_id, error=str(exc))
+        raise
+
+    with sync_session() as db:
+        job = db.get(IngestionJob, job_uuid)
+        document = db.get(Document, doc_uuid)
+        if job is not None:
+            job.state = IngestionState.SUCCEEDED
+            job.finished_at = _now()
+        if document is not None:
+            document.status = DocumentStatus.READY
+        db.commit()
+    logger.info("reindex_job_done", job_id=job_id, points=len(point_ids))

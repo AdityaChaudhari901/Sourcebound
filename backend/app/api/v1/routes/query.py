@@ -69,6 +69,9 @@ async def query(request: QueryRequest, principal: CurrentPrincipal, db: DbSessio
         content=result.answer,
         citations=citation_dicts or None,
         latency_ms=latency_ms,
+        grounding=result.grounding,
+        self_corrected=result.self_corrected,
+        used_web_search=result.used_web_search,
     )
     await db.commit()
 
@@ -123,6 +126,9 @@ async def query_stream(
                         content=event.answer,
                         citations=citation_dicts or None,
                         latency_ms=int((time.perf_counter() - started) * 1000),
+                        grounding=event.grounding,
+                        self_corrected=event.self_corrected,
+                        used_web_search=event.used_web_search,
                     )
                     yield _sse(
                         "citations",
