@@ -103,3 +103,20 @@ REWRITE_SYSTEM = (
 
 def build_rewrite_prompt(question: str) -> str:
     return f"Original question: {question}\n\nReformulated search query:"
+
+
+# --- Grounding verifier (the verify node's confidence signal) ----------------------
+
+VERIFY_SYSTEM = (
+    "You are a strict grounding verifier. Given CONTEXT and an ANSWER, rate from 0 to 1 "
+    "how fully the answer is supported by the context: 1.0 = every claim is directly "
+    "supported; 0.0 = the answer makes claims not found in the context. "
+    "Reply with ONLY a number between 0 and 1."
+)
+
+
+def build_verify_prompt(answer: str, chunks: list[RetrievedChunk]) -> str:
+    return (
+        f"CONTEXT:\n{build_context_block(chunks)}\n\n"
+        f"ANSWER:\n{answer}\n\nGrounding score (0-1):"
+    )

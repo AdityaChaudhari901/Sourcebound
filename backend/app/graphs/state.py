@@ -17,5 +17,7 @@ class QueryState(TypedDict):
     question: str
     documents: list[RetrievedChunk]
     documents_relevant: bool  # grade: did any retrieved doc survive relevance grading?
+    web_search_used: bool     # did the web-fallback path fire?
     generation: str
-    retries: int
+    grounding: float | None   # verify node: 0-1 how grounded the answer is (None if N/A)
+    retries: int              # >0 means the query was self-corrected (rewrite loop)

@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CitationList } from "@/components/citation-list";
 import { FeedbackButtons } from "@/components/feedback-buttons";
+import { Answer } from "@/components/answer";
+import { AnswerBadges } from "@/components/answer-badges";
 
 export default function AskPage() {
   const [question, setQuestion] = useState("");
@@ -53,6 +55,9 @@ export default function AskPage() {
                   content: data.answer ?? "",
                   citations: data.citations ?? [],
                   messageId: data.message_id,
+                  grounding: data.grounding,
+                  selfCorrected: data.self_corrected,
+                  usedWebSearch: data.used_web_search,
                 },
               ]);
               setStreamingAnswer("");
@@ -94,13 +99,20 @@ export default function AskPage() {
           ) : (
             <div key={i} className="space-y-3">
               <div className="border-border bg-card rounded-lg border p-4">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-muted-foreground/70 font-mono text-[10px] uppercase tracking-[0.18em]">
                     Answer
                   </p>
                   {turn.messageId && <FeedbackButtons messageId={turn.messageId} />}
                 </div>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.content}</p>
+                <Answer text={turn.content} citations={turn.citations} />
+                <div className="mt-3">
+                  <AnswerBadges
+                    grounding={turn.grounding}
+                    selfCorrected={turn.selfCorrected}
+                    usedWebSearch={turn.usedWebSearch}
+                  />
+                </div>
               </div>
               <CitationList citations={turn.citations} />
             </div>

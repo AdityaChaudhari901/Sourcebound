@@ -15,6 +15,7 @@ import re
 from typing import Literal
 
 from langchain_core.runnables import RunnableConfig
+from langgraph.config import get_stream_writer
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -24,9 +25,11 @@ from app.rag.prompting import (
     INSUFFICIENT_ANSWER,
     REWRITE_SYSTEM,
     SYSTEM_PROMPT,
+    VERIFY_SYSTEM,
     build_grader_prompt,
     build_rewrite_prompt,
     build_user_prompt,
+    build_verify_prompt,
 )
 from app.rag.providers.llm import get_llm_provider
 from app.rag.providers.search import get_search_provider
@@ -134,7 +137,7 @@ def web_search(state: QueryState, config: RunnableConfig) -> dict:
         if result.content
     ]
     logger.info("graph_web_search", results=len(documents))
-    return {"documents": documents, "documents_relevant": bool(documents)}
+    return {"documents": documents, "documents_relevant": bool(documents), "web_search_used": True}
 
 
 def rewrite_query(state: QueryState, config: RunnableConfig) -> dict:
@@ -153,13 +156,45 @@ def rewrite_query(state: QueryState, config: RunnableConfig) -> dict:
     return {"question": rewritten, "retries": retries}
 
 
+def _parse_grounding(raw: str) -> float | None:
+    match = re.search(r"\d*\.?\d+", raw)
+    if not match:
+        return None
+    return max(0.0, min(1.0, float(match.group(0))))
+
+
 def generate(state: QueryState, config: RunnableConfig) -> dict:
     documents = state["documents"]
     if not documents:
         return {"generation": INSUFFICIENT_ANSWER}
     history = (config.get("configurable") or {}).get("history")
-    answer = get_llm_provider().complete(
-        system=SYSTEM_PROMPT,
-        user=build_user_prompt(state["question"], documents, history),
+
+    # Stream tokens through LangGraph's custom stream channel when the graph is
+    # being streamed; a no-op writer when it's invoked, so /query still works.
+    try:
+        writer = get_stream_writer()
+    except Exception:  # noqa: BLE001 - not in a streaming context
+        writer = None
+
+    parts: list[str] = []
+    for token in get_llm_provider().stream(
+        system=SYSTEM_PROMPT, user=build_user_prompt(state["question"], documents, history)
+    ):
+        parts.append(token)
+        if writer is not None:
+            writer({"token": token})
+    return {"generation": "".join(parts).strip()}
+
+
+def verify_grounding(state: QueryState, config: RunnableConfig) -> dict:
+    """Verify node: rate how grounded the answer is in the retrieved context (0-1)."""
+    documents = state["documents"]
+    answer = state["generation"]
+    if not documents or INSUFFICIENT_ANSWER.lower() in answer.lower():
+        return {"grounding": None}
+    raw = get_llm_provider().complete(
+        system=VERIFY_SYSTEM, user=build_verify_prompt(answer, documents)
     )
-    return {"generation": answer}
+    grounding = _parse_grounding(raw)
+    logger.info("graph_verify", grounding=grounding)
+    return {"grounding": grounding}

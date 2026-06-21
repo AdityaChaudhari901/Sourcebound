@@ -1,10 +1,10 @@
-"""Naive RAG query service: retrieve -> ground -> generate -> cite (synchronous).
+"""Query service — runs the compiled corrective-RAG graph (non-streaming and
+streaming) and shapes the result.
 
-Blocking by design (sync embedder, Qdrant, and LLM clients); the route runs it
-in a worker thread. When retrieval returns nothing, we short-circuit with the
-insufficiency answer and no citations — no point asking the LLM with empty
-context. When the model emits the insufficiency sentinel, citations are dropped
-so we never present sources for a non-answer.
+Both paths go through the SAME graph (retrieve -> grade -> rewrite/web -> generate
+-> verify), so they share the corrective behavior and the metadata the UI shows
+(grounding from the verify node, self-correction, web fallback). Streaming uses the
+graph's custom stream channel: the generate node emits tokens as it produces them.
 """
 
 from __future__ import annotations
@@ -15,14 +15,7 @@ from dataclasses import dataclass
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.graphs.graph import get_query_graph
-from app.rag.prompting import (
-    INSUFFICIENT_ANSWER,
-    SYSTEM_PROMPT,
-    build_user_prompt,
-)
-from app.rag.providers.llm import get_llm_provider
-from app.rag.reranking import get_reranker
-from app.rag.retrievers import get_retriever
+from app.rag.prompting import INSUFFICIENT_ANSWER
 
 logger = get_logger(__name__)
 
@@ -41,6 +34,9 @@ class Citation:
 class QueryResult:
     answer: str
     citations: list[Citation]
+    grounding: float | None = None
+    self_corrected: bool = False
+    used_web_search: bool = False
 
 
 # --- Streaming event types (yielded by stream_answer) ---
@@ -55,19 +51,14 @@ class TokenChunk:
 class FinalResult:
     answer: str
     citations: list[Citation]
+    grounding: float | None = None
+    self_corrected: bool = False
+    used_web_search: bool = False
 
 
 def _snippet(text: str) -> str:
     text = " ".join(text.split())
     return text if len(text) <= _SNIPPET_CHARS else text[:_SNIPPET_CHARS].rstrip() + "…"
-
-
-def _retrieve_and_rank(question: str, top_k: int, *, tenant_id: str):
-    """Stage 1 (hybrid, top-N, tenant-filtered) -> stage 2 (rerank, top-k)."""
-    candidates = get_retriever().retrieve(
-        question, k=settings.retrieve_top_n, tenant_id=tenant_id
-    )
-    return candidates, get_reranker().rerank(question, candidates, top_k=top_k)
 
 
 def _citations_for(answer: str, chunks) -> list[Citation]:
@@ -85,40 +76,53 @@ def _citations_for(answer: str, chunks) -> list[Citation]:
     ]
 
 
+def _initial_state(question: str) -> dict:
+    return {
+        "question": question,
+        "documents": [],
+        "documents_relevant": False,
+        "web_search_used": False,
+        "generation": "",
+        "grounding": None,
+        "retries": 0,
+    }
+
+
+def _graph_config(tenant_id: str, k: int | None, history: list[dict] | None) -> dict:
+    return {
+        "configurable": {
+            "k": k or settings.query_top_k,
+            "tenant_id": tenant_id,
+            "history": history,
+        }
+    }
+
+
 def answer_question(
     question: str, *, tenant_id: str, k: int | None = None, history: list[dict] | None = None
 ) -> QueryResult:
-    """Non-streaming: run the compiled query graph (tenant-scoped), then cite.
-
-    tenant_id flows through the graph config to the retrieve node, which filters
-    Qdrant by it — so the graph can only ever see this tenant's vectors.
-    """
-    final_state = get_query_graph().invoke(
-        {
-            "question": question,
-            "documents": [],
-            "documents_relevant": False,
-            "generation": "",
-            "retries": 0,
-        },
-        config={
-            "configurable": {
-                "k": k or settings.query_top_k,
-                "tenant_id": tenant_id,
-                "history": history,
-            }
-        },
+    """Non-streaming: invoke the corrective graph, then shape the result."""
+    final = get_query_graph().invoke(
+        _initial_state(question), config=_graph_config(tenant_id, k, history)
     )
-    documents = final_state["documents"]
-    answer = final_state["generation"]
+    documents = final["documents"]
+    answer = final["generation"]
     citations = _citations_for(answer, documents) if documents else []
-
     logger.info(
         "query_answered",
         reranked=len(documents),
         cited=len(citations),
+        grounding=final.get("grounding"),
+        self_corrected=final["retries"] > 0,
+        used_web=final.get("web_search_used", False),
     )
-    return QueryResult(answer=answer, citations=citations)
+    return QueryResult(
+        answer=answer,
+        citations=citations,
+        grounding=final.get("grounding"),
+        self_corrected=final["retries"] > 0,
+        used_web_search=final.get("web_search_used", False),
+    )
 
 
 def stream_answer(
@@ -128,33 +132,34 @@ def stream_answer(
     k: int | None = None,
     history: list[dict] | None = None,
 ) -> Iterator[TokenChunk | FinalResult]:
-    """Streaming: yield answer tokens as they generate, then a final citations event.
-
-    Tenant-scoped retrieval, same as answer_question; only generation differs.
-    """
-    candidates, chunks = _retrieve_and_rank(
-        question, k or settings.query_top_k, tenant_id=tenant_id
-    )
-    if not chunks:
-        logger.info("query_no_context", question_len=len(question))
-        yield FinalResult(answer=INSUFFICIENT_ANSWER, citations=[])
-        return
-
-    provider = get_llm_provider()
-    parts: list[str] = []
-    for token in provider.stream(
-        system=SYSTEM_PROMPT, user=build_user_prompt(question, chunks, history)
+    """Streaming: stream the graph; emit generate-node tokens, then a final event
+    with citations + the corrective metadata read from the graph's final state."""
+    final_state: dict = {}
+    for mode, chunk in get_query_graph().stream(
+        _initial_state(question),
+        config=_graph_config(tenant_id, k, history),
+        stream_mode=["custom", "values"],
     ):
-        parts.append(token)
-        yield TokenChunk(text=token)
+        if mode == "custom":
+            token = chunk.get("token")
+            if token:
+                yield TokenChunk(text=token)
+        elif mode == "values":
+            final_state = chunk
 
-    answer = "".join(parts).strip()
-    citations = _citations_for(answer, chunks)
+    documents = final_state.get("documents", [])
+    answer = final_state.get("generation", INSUFFICIENT_ANSWER)
+    citations = _citations_for(answer, documents) if documents else []
     logger.info(
         "query_answered_stream",
-        candidates=len(candidates),
-        reranked=len(chunks),
+        reranked=len(documents),
         cited=len(citations),
-        model=provider.model_name,
+        grounding=final_state.get("grounding"),
     )
-    yield FinalResult(answer=answer, citations=citations)
+    yield FinalResult(
+        answer=answer,
+        citations=citations,
+        grounding=final_state.get("grounding"),
+        self_corrected=final_state.get("retries", 0) > 0,
+        used_web_search=final_state.get("web_search_used", False),
+    )

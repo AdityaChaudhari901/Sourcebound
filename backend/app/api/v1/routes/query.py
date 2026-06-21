@@ -77,6 +77,9 @@ async def query(request: QueryRequest, principal: CurrentPrincipal, db: DbSessio
         citations=[CitationOut(**c) for c in citation_dicts],
         conversation_id=conversation.id,
         message_id=assistant.id,
+        grounding=result.grounding,
+        self_corrected=result.self_corrected,
+        used_web_search=result.used_web_search,
     )
 
 
@@ -128,6 +131,9 @@ async def query_stream(
                             "citations": citation_dicts,
                             "conversation_id": str(conversation_id),
                             "message_id": str(message_id),
+                            "grounding": event.grounding,
+                            "self_corrected": event.self_corrected,
+                            "used_web_search": event.used_web_search,
                         },
                     )
             yield _sse("done", {})

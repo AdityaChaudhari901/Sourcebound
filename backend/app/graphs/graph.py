@@ -26,6 +26,7 @@ from app.graphs.nodes import (
     grade_documents,
     retrieve,
     rewrite_query,
+    verify_grounding,
     web_search,
 )
 from app.graphs.state import QueryState
@@ -38,6 +39,7 @@ def build_query_graph() -> CompiledStateGraph:
     builder.add_node("rewrite_query", rewrite_query)
     builder.add_node("web_search", web_search)
     builder.add_node("generate", generate)
+    builder.add_node("verify_grounding", verify_grounding)
 
     builder.add_edge(START, "retrieve")
     builder.add_edge("retrieve", "grade_documents")
@@ -49,7 +51,8 @@ def build_query_graph() -> CompiledStateGraph:
     )
     builder.add_edge("rewrite_query", "retrieve")  # the loop back
     builder.add_edge("web_search", "generate")  # web results -> grounded generation
-    builder.add_edge("generate", END)
+    builder.add_edge("generate", "verify_grounding")  # verify grounding before returning
+    builder.add_edge("verify_grounding", END)
     return builder.compile()
 
 

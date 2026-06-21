@@ -29,3 +29,6 @@ class QueryResponse(BaseModel):
     citations: list[CitationOut]
     conversation_id: uuid.UUID
     message_id: uuid.UUID  # the assistant message — target for feedback
+    grounding: float | None = None  # verify-node confidence (0-1)
+    self_corrected: bool = False    # the rewrite loop fired
+    used_web_search: bool = False   # the web fallback fired
