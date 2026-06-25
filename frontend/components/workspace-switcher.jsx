@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Check, ChevronsUpDown } from "lucide-react";
 
@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth";
 export function WorkspaceSwitcher() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
 
   const { data: workspaces } = useQuery({
     queryKey: ["workspaces"],
@@ -21,13 +22,29 @@ export function WorkspaceSwitcher() {
     enabled: !!user,
   });
 
+  // Close on outside click and Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   const current = user?.workspace;
 
   return (
-    <div className="relative px-3 py-2">
+    <div className="relative px-3 py-2" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Switch workspace"
         className="border-border hover:bg-sidebar-accent focus-visible:ring-ring flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
       >
         <Building2 className="text-muted-foreground size-4 shrink-0" aria-hidden />
@@ -43,7 +60,10 @@ export function WorkspaceSwitcher() {
       </button>
 
       {open && (
-        <div className="border-border bg-card absolute left-3 right-3 top-full z-10 mt-1 rounded-md border p-1 shadow-lg">
+        <div
+          role="menu"
+          className="border-border bg-card absolute left-3 right-3 top-full z-10 mt-1 rounded-md border p-1 shadow-lg"
+        >
           <p className="text-muted-foreground/60 px-2 py-1 font-mono text-[9px] uppercase tracking-wider">
             Workspaces
           </p>
@@ -51,10 +71,12 @@ export function WorkspaceSwitcher() {
             <button
               key={w.id}
               type="button"
+              role="menuitemradio"
+              aria-checked={w.id === current?.id}
               onClick={() => setOpen(false)}
-              className="hover:bg-sidebar-accent flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs"
+              className="hover:bg-sidebar-accent focus-visible:bg-sidebar-accent flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs focus-visible:outline-none"
             >
-              <span className="truncate flex-1">{w.name}</span>
+              <span className="flex-1 truncate">{w.name}</span>
               {w.id === current?.id && <Check className="text-primary size-3.5 shrink-0" />}
             </button>
           ))}

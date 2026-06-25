@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 
@@ -17,8 +18,10 @@ export function FeedbackButtons({ messageId }) {
     setBusy(true);
     try {
       await api.post("/feedback", { message_id: messageId, rating: value });
-    } catch {
+      toast.success("Thanks for the feedback");
+    } catch (err) {
       setRating(previous);
+      toast.error(err?.message ?? "Couldn't save feedback");
     } finally {
       setBusy(false);
     }

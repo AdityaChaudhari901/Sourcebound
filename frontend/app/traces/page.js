@@ -7,6 +7,7 @@ import { ArrowUpRight, Gauge, Globe, MessageSquareText, RefreshCw, Zap } from "l
 import { api } from "@/lib/api";
 import { fmtDate, fmtMs, pct, timeAgo } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/states";
 
 // Per-trace deep links require instrumenting the query path with Langfuse spans;
 // for now we link to the project dashboard.
@@ -92,7 +93,7 @@ function Detail({ trace }) {
 }
 
 export default function TracesPage() {
-  const { data: traces, isLoading } = useQuery({
+  const { data: traces, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["traces"],
     queryFn: () => api.get("/traces"),
   });
@@ -122,6 +123,8 @@ export default function TracesPage() {
         <div className="space-y-3">
           {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
         </div>
+      ) : isError ? (
+        <ErrorState error={error} onRetry={refetch} />
       ) : traces?.length ? (
         <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
           {/* List */}
@@ -160,9 +163,13 @@ export default function TracesPage() {
           </div>
         </div>
       ) : (
-        <p className="text-muted-foreground/60 py-12 text-center text-sm">
-          No traces yet. Ask a question to generate one.
-        </p>
+        <EmptyState
+          icon={MessageSquareText}
+          title="No traces yet"
+          hint="Ask a question to generate your first query trace."
+          href="/ask"
+          cta="Go to Ask"
+        />
       )}
     </div>
   );

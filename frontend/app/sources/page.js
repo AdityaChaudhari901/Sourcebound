@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Clock, FileText, Loader2, RefreshCw, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { Clock, FileText, Loader2, RefreshCw, Upload } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { daysSince, timeAgo } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
+import { EmptyState, ErrorState } from "@/components/states";
 
 const STALE_DAYS = 30;
 const ACTIVE = new Set(["pending", "processing"]);
@@ -20,7 +21,11 @@ function DocumentRow({ doc }) {
   const qc = useQueryClient();
   const reingest = useMutation({
     mutationFn: () => api.post(`/documents/${doc.id}/reingest`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["documents"] });
+      toast.success(`Re-indexing “${doc.title || doc.uri}”`);
+    },
+    onError: (err) => toast.error(err?.message ?? "Couldn't start re-indexing"),
   });
 
   const stale = (() => {
@@ -75,7 +80,7 @@ export default function SourcesPage() {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
 
-  const { data: documents, isLoading } = useQuery({
+  const { data: documents, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["documents"],
     queryFn: () => api.get("/documents"),
     refetchInterval: (q) =>
@@ -93,7 +98,9 @@ export default function SourcesPage() {
       setFile(null);
       setTitle("");
       qc.invalidateQueries({ queryKey: ["documents"] });
+      toast.success("Upload queued — indexing will begin shortly");
     },
+    onError: (err) => toast.error(err?.message ?? "Upload failed"),
   });
 
   const submit = (e) => {
@@ -138,35 +145,33 @@ export default function SourcesPage() {
         </Button>
       </form>
 
-      {upload.isError && (
-        <Alert variant="destructive">
-          <AlertCircle className="size-4" />
-          <AlertTitle>Upload failed</AlertTitle>
-          <AlertDescription>{upload.error?.message ?? "Could not enqueue ingestion."}</AlertDescription>
-        </Alert>
-      )}
-
       {/* Documents table */}
-      <div className="border-border overflow-hidden rounded-lg border">
-        <div className="border-border text-muted-foreground/60 grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider">
-          <span>Document</span>
-          <span className="hidden sm:block">Type</span>
-          <span>Chunks</span>
-          <span>Status</span>
-          <span className="text-right">Actions</span>
-        </div>
-        {isLoading ? (
-          <div className="space-y-3 p-4">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+      {isError ? (
+        <ErrorState error={error} onRetry={refetch} />
+      ) : (
+        <div className="border-border overflow-hidden rounded-lg border">
+          <div className="border-border text-muted-foreground/60 grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider">
+            <span>Document</span>
+            <span className="hidden sm:block">Type</span>
+            <span>Chunks</span>
+            <span>Status</span>
+            <span className="text-right">Actions</span>
           </div>
-        ) : documents?.length ? (
-          documents.map((doc) => <DocumentRow key={doc.id} doc={doc} />)
-        ) : (
-          <p className="text-muted-foreground/60 px-4 py-8 text-center text-sm">
-            No documents yet. Upload one above to get started.
-          </p>
-        )}
-      </div>
+          {isLoading ? (
+            <div className="space-y-3 p-4">
+              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+            </div>
+          ) : documents?.length ? (
+            documents.map((doc) => <DocumentRow key={doc.id} doc={doc} />)
+          ) : (
+            <EmptyState
+              icon={FileText}
+              title="No documents yet"
+              hint="Upload a PDF or Markdown file above to start building your knowledge base."
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

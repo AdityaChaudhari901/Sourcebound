@@ -16,6 +16,7 @@ import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tile } from "@/components/dashboard/tile";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { ErrorState } from "@/components/states";
 
 function timeAgo(iso) {
   if (!iso) return "—";
@@ -56,7 +57,7 @@ function ScoreCard({ label, value, accent }) {
 }
 
 export default function DashboardPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api.get("/dashboard"),
     refetchInterval: 30000,
@@ -67,6 +68,8 @@ export default function DashboardPage() {
   const recent = data?.recent_answers ?? [];
   const ing = data?.ingestion_status;
   const lat = data?.latency;
+
+  if (isError) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:auto-rows-[11rem]">

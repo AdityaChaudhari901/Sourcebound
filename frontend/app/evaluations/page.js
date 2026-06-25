@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { fmtDate, pct } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { EmptyState, ErrorState } from "@/components/states";
 
 const METRICS = [
   { key: "faithfulness", label: "Faithfulness", accent: true },
@@ -51,7 +52,7 @@ function RunSelect({ label, value, onChange, runs }) {
 }
 
 export default function EvaluationsPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["eval-runs"],
     queryFn: () => api.get("/eval-runs"),
   });
@@ -75,13 +76,24 @@ export default function EvaluationsPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6">
+        <h1 className="text-base font-medium">Evaluations</h1>
+        <ErrorState error={error} onRetry={refetch} />
+      </div>
+    );
+  }
+
   if (!runs.length) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-4xl space-y-6">
         <h1 className="text-base font-medium">Evaluations</h1>
-        <p className="text-muted-foreground/60 mt-8 text-center text-sm">
-          No eval runs yet. Run <span className="font-mono">python eval/run_eval.py</span> from the backend.
-        </p>
+        <EmptyState
+          icon={FlaskConical}
+          title="No eval runs yet"
+          hint="Run python eval/run_eval.py from the backend to score answer quality."
+        />
       </div>
     );
   }

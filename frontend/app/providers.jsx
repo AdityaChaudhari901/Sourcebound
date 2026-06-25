@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { Toaster } from "@/components/ui/sonner";
+
 /**
  * Client-side providers mounted once in the root layout.
  * The QueryClient is created in state so it's stable across re-renders and not
@@ -22,5 +24,10 @@ export function Providers({ children }) {
       }),
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster />
+    </QueryClientProvider>
+  );
 }
