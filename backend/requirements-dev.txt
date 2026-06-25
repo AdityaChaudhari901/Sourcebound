@@ -1,0 +1,5 @@
+# Test dependencies — install with: pip install -r requirements-dev.txt
+pytest>=8
+pytest-cov
+# Integration tests spin real Postgres + Qdrant in throwaway containers.
+testcontainers>=4.0

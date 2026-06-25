@@ -217,6 +217,27 @@ uvicorn app.main:app --reload          # API at http://localhost:8000, docs at /
 celery -A app.workers.celery_app worker --loglevel=info   # ingestion worker (separate shell)
 ```
 
+### Tests (backend)
+```bash
+cd backend
+pip install -r requirements-dev.txt          # pytest, pytest-cov, testcontainers
+
+# Fast unit tests (no Docker): chunking, RRF fusion, reranker, every graph node
+pytest -m "not integration"
+
+# Full suite incl. integration (real Postgres + Qdrant via testcontainers — needs Docker)
+pytest
+
+# Coverage on the RAG + graph code
+pytest --cov=app/rag --cov=app/graphs --cov-report=term-missing
+```
+Integration tests need a running Docker daemon. On Colima, point the Docker SDK at
+its socket and disable the Ryuk reaper:
+```bash
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+export TESTCONTAINERS_RYUK_DISABLED=true
+```
+
 ### Frontend (local dev)
 ```bash
 cd frontend
