@@ -3,8 +3,9 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 
 # --- Validation & settings ---
-pydantic==2.10.4
+pydantic==2.13.4               # langchain-core 1.4.8 / langfuse 4.9.1 require >2.10
 pydantic-settings==2.7.1
+email-validator==2.3.0         # required by Pydantic EmailStr (auth schemas)
 
 # --- Structured logging ---
 structlog==24.4.0

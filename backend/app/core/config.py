@@ -9,10 +9,10 @@ colliding with generic shell variables such as ``DEBUG`` or ``ENVIRONMENT``.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -143,7 +143,9 @@ class Settings(BaseSettings):
     )
 
     # --- CORS (comma-separated string or list) ---
-    cors_origins: list[str] = ["http://localhost:3000"]
+    # NoDecode: skip pydantic-settings' JSON decoding so the env value can be a plain
+    # comma-separated string (handled by _split_cors_origins below), as documented.
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
 
     # --- Logging ---
     log_level: str = "INFO"

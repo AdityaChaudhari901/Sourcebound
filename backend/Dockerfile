@@ -1,3 +1,5 @@
+# Single backend image, used for three roles by docker-compose (one build, one
+# artifact): the API (uvicorn), the Celery worker, and the one-shot migrate job.
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -11,7 +13,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copy application code.
+# Application code + Alembic config (migrations live in app/database/migrations).
+COPY alembic.ini .
 COPY app ./app
 
 # Run as a non-root user.
@@ -20,7 +23,9 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+# Liveness: the orchestrator restarts the container if /health stops responding.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"
 
+# uvicorn handles SIGTERM gracefully (drains in-flight requests) for clean deploys.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

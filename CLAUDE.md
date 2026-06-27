@@ -201,9 +201,46 @@ backend/  frontend/
 
 > Exact scripts land with the slices that introduce them. This is the intended shape.
 
-### Infrastructure (one command brings up the services)
+### Full stack in Docker (one command runs everything)
 ```bash
-docker compose up -d        # qdrant + postgres + redis + langfuse (+ api/worker when containerized)
+# Prereq: create backend/.env (app secrets) — see backend/.env.example
+docker compose up --build -d
+```
+Brings up **api + worker + frontend + postgres + qdrant + redis + langfuse** (and a
+one-shot `migrate` job that runs Alembic before api/worker start). After it's up:
+- Frontend → http://localhost:3000
+- API + docs → http://localhost:8000 (`/docs`)
+- Langfuse → http://localhost:3001
+
+Stop / reset:
+```bash
+docker compose down            # stop (keeps data volumes)
+docker compose down -v         # stop + wipe postgres/qdrant/redis/langfuse data
+```
+
+**Required env vars** (two files; both gitignored except the `.example`s):
+
+| File | Holds | Required keys |
+|---|---|---|
+| `backend/.env` (app secrets, read by api + worker) | auth + provider creds | `JWT_SECRET` (`openssl rand -hex 32`); **one** LLM provider — e.g. `LLM_PROVIDER=vertex` + `VERTEX_PROJECT_ID` + `VERTEX_REGION`, or `LLM_PROVIDER=groq` + `GROQ_API_KEY`. Optional: `LANGFUSE_*`, `TAVILY_API_KEY` + `WEB_SEARCH_ENABLED=true`. |
+| repo-root `.env` (compose infra, all defaulted) | service config | none required; override `POSTGRES_*`, `*_PORT`, `LANGFUSE_NEXTAUTH_SECRET`/`LANGFUSE_SALT` as needed. |
+
+Compose injects the container-network URLs (`DATABASE_URL`→postgres, `REDIS_URL`→redis,
+`QDRANT_URL`→qdrant) automatically — don't set those for Docker.
+
+Notes:
+- **Vertex (default LLM):** the api/worker mount your host `~/.config/gcloud` (ADC) so
+  Gemini auth works in-container. Run `gcloud auth application-default login` first, or
+  switch to an API-key provider (groq/gemini) to drop the mount.
+- **`NEXT_PUBLIC_API_URL` is baked at build time** (browser-facing). It defaults to
+  `http://localhost:8000/api/v1`. If you publish the API on a different host/port, set
+  `NEXT_PUBLIC_API_URL` (and `API_PORT`) and rebuild the frontend.
+- **Port already allocated?** Another project on `:8000`/`:3000` will block the bind —
+  stop it, or set `API_PORT` / `FRONTEND_PORT` (and rebuild the frontend if you move the API).
+
+### Infrastructure only (local dev: run api/worker/frontend on the host)
+```bash
+docker compose up -d postgres qdrant redis langfuse langfuse-db
 ```
 
 ### Backend (local dev)

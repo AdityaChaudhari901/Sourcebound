@@ -1,8 +1,13 @@
 name: sourcebound
 
-# Local-dev supporting services for Sourcebound.
-# App (FastAPI) and worker (Celery) are NOT here — run them locally against these.
-# Config comes from the repo-root `.env` (copy from `.env.example`).
+# Full Sourcebound stack — api + worker + frontend + postgres + qdrant + redis +
+# langfuse — in one command:
+#
+#     docker compose up --build -d
+#
+# App secrets (JWT_SECRET, LLM provider creds, Langfuse keys, Tavily) come from
+# backend/.env (env_file below). Infra/compose config comes from the repo-root .env
+# (copy from .env.example). The `migrate` job runs Alembic once before api/worker.
 
 services:
   # --- Application metadata store (Postgres) ---
@@ -50,6 +55,100 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- DB migrations (one-shot; api + worker wait for this to finish) ---
+  # Reuses the image built by `api` (compose builds all images before starting any
+  # container), so there's a single backend artifact.
+  migrate:
+    image: sourcebound/api:local
+    container_name: sourcebound-migrate
+    command: alembic upgrade head
+    restart: "no"
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sourcebound}:${POSTGRES_PASSWORD:-sourcebound}@postgres:5432/${POSTGRES_DB:-sourcebound}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- API (FastAPI / uvicorn) — builds the single backend image ---
+  api:
+    image: sourcebound/api:local
+    build:
+      context: ./backend
+    container_name: sourcebound-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    env_file: ./backend/.env
+    environment:
+      # Container-network service URLs override anything in backend/.env.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sourcebound}:${POSTGRES_PASSWORD:-sourcebound}@postgres:5432/${POSTGRES_DB:-sourcebound}
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      SOURCEBOUND_CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      # Vertex AI auth: mounts your local gcloud ADC so the container can call Gemini.
+      # Harmless if absent (an empty dir is mounted); only needed when LLM_PROVIDER=vertex.
+      # Switch to an API-key provider (groq/gemini) to drop this dependency.
+      - ${HOME}/.config/gcloud:/home/appuser/.config/gcloud:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  # --- Celery worker (async ingestion) — reuses the api image ---
+  worker:
+    image: sourcebound/api:local
+    container_name: sourcebound-worker
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    # The shared image's HTTP /health check is for the API; a Celery worker has no
+    # HTTP server, so probe the worker via the broker instead.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -t 10 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sourcebound}:${POSTGRES_PASSWORD:-sourcebound}@postgres:5432/${POSTGRES_DB:-sourcebound}
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+    volumes:
+      - ${HOME}/.config/gcloud:/home/appuser/.config/gcloud:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  # --- Frontend (Next.js, standalone production server) ---
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # NEXT_PUBLIC_* is baked at build time and runs in the browser, so it must
+        # point at the host-published API port, not the internal `api` hostname.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
+    container_name: sourcebound-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
   # --- Langfuse's own Postgres (kept separate from app data) ---
   langfuse-db:
     image: postgres:16-alpine
@@ -83,29 +182,6 @@ services:
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-change-me-nextauth-secret}
       SALT: ${LANGFUSE_SALT:-change-me-salt}
       TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-false}
-
-  # --- Celery worker (async ingestion) ---
-  # Profiled: NOT started by `docker compose up` / `make up` (local dev runs the
-  # worker via `make dev`). Start the containerized worker with:
-  #   docker compose --profile worker up -d worker
-  worker:
-    build:
-      context: ./backend
-    container_name: sourcebound-worker
-    restart: unless-stopped
-    profiles: ["worker"]
-    command: celery -A app.workers.celery_app worker --loglevel=info
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sourcebound}:${POSTGRES_PASSWORD:-sourcebound}@postgres:5432/${POSTGRES_DB:-sourcebound}
-      REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_started
 
 volumes:
   postgres-data:
