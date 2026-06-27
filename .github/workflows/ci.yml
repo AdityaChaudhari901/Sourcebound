@@ -62,9 +62,15 @@ jobs:
   eval:
     runs-on: ubuntu-latest
     # Runs the corrective-RAG pipeline over the golden dataset and FAILS the build
-    # if mean faithfulness drops below the threshold. Needs the GOOGLE_API_KEY
-    # secret (Gemini Developer API) — skipped on fork PRs where it isn't available.
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    # if mean faithfulness drops below the threshold.
+    #
+    # OPT-IN: this gate calls a real LLM, so it needs a credential and would bill
+    # credits on every run. It is OFF by default (CI stays green without it). To
+    # enable it:
+    #   1. add the GOOGLE_API_KEY repo secret (Gemini Developer API key), and
+    #   2. set the RUN_EVAL repo variable to 'true'.
+    # It is also skipped on fork PRs, where secrets aren't available.
+    if: ${{ vars.RUN_EVAL == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     services:
       postgres:
         image: postgres:16
