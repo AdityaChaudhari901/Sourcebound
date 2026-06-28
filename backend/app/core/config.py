@@ -11,8 +11,14 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+# Insecure development defaults that must never reach a public environment. The
+# startup validator (``_validate_production_secrets``) refuses to boot if any of
+# these are still in place when environment is staging/production.
+INSECURE_JWT_SECRET = "dev-insecure-change-me-in-production"
+DEFAULT_DB_CREDENTIALS = "sourcebound:sourcebound@"  # user:pass in DATABASE_URL
 
 
 class Settings(BaseSettings):
@@ -35,7 +41,7 @@ class Settings(BaseSettings):
 
     # --- Auth (JWT + API keys) ---
     jwt_secret: SecretStr = Field(
-        default=SecretStr("dev-insecure-change-me-in-production"),
+        default=SecretStr(INSECURE_JWT_SECRET),
         validation_alias=AliasChoices("JWT_SECRET", "SOURCEBOUND_JWT_SECRET"),
     )
     jwt_algorithm: str = "HS256"
@@ -148,6 +154,19 @@ class Settings(BaseSettings):
     # comma-separated string (handled by _split_cors_origins below), as documented.
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
 
+    # --- Production hardening (middleware-driven; see app/main.py) ---
+    # Host header allow-list (defends against host-header injection); "*" = allow any.
+    trusted_hosts: Annotated[list[str], NoDecode] = ["*"]
+    # Redirect http->https at the app (usually the edge/LB does this; off by default).
+    force_https: bool = False
+    # Emit security response headers (HSTS, X-Content-Type-Options, frame deny, ...).
+    security_headers_enabled: bool = True
+    hsts_max_age: int = 31_536_000  # 1 year; only sent over HTTPS requests
+    # Token-bucket rate limit per principal (or client IP when anonymous), via Redis.
+    # Fails open if Redis is unreachable — never take the API down over rate limiting.
+    rate_limit_enabled: bool = True
+    rate_limit_per_minute: int = 120
+
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True
@@ -181,13 +200,45 @@ class Settings(BaseSettings):
             self.langfuse_enabled and self.langfuse_public_key and self.langfuse_secret_key
         )
 
-    @field_validator("cors_origins", mode="before")
+    @field_validator("cors_origins", "trusted_hosts", mode="before")
     @classmethod
-    def _split_cors_origins(cls, value: object) -> object:
-        """Allow SOURCEBOUND_CORS_ORIGINS to be provided as a comma-separated string."""
+    def _split_csv(cls, value: object) -> object:
+        """Allow these list settings to be given as a comma-separated string."""
         if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+            return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _validate_production_secrets(self) -> "Settings":
+        """Fail fast: refuse to boot a staging/production app with insecure defaults.
+
+        A service that starts with a forgeable JWT secret or wide-open CORS is worse
+        than one that won't start — crash loudly instead of serving an insecure API.
+        """
+        if self.environment not in ("staging", "production"):
+            return self
+        problems: list[str] = []
+        if self.jwt_secret.get_secret_value() == INSECURE_JWT_SECRET:
+            problems.append(
+                "JWT_SECRET is the insecure default — set a strong value "
+                "(`openssl rand -hex 32`)."
+            )
+        if "*" in self.cors_origins:
+            problems.append(
+                "SOURCEBOUND_CORS_ORIGINS must list explicit origins, not '*', "
+                "because credentials are allowed."
+            )
+        if DEFAULT_DB_CREDENTIALS in self.database_url:
+            problems.append(
+                "DATABASE_URL uses the default dev credentials — set a strong "
+                "Postgres password."
+            )
+        if problems:
+            raise ValueError(
+                f"Insecure configuration for environment={self.environment!r}:\n  - "
+                + "\n  - ".join(problems)
+            )
+        return self
 
 
 @lru_cache

@@ -12,14 +12,21 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.health import router as health_router
 from app.api.v1.router import api_router as api_v1_router
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import (
+    RateLimitMiddleware,
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.core.observability import configure_langfuse, shutdown_langfuse
+from app.core.redis import close_redis
 from app.database.session import dispose_engine
 
 logger = get_logger(__name__)
@@ -37,6 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Other resource init (db pool, redis, qdrant) is wired in later slices.
     yield
     shutdown_langfuse()  # flush buffered traces before exit
+    await close_redis()  # close the app-side Redis client
     await dispose_engine()  # close the DB connection pool
     logger.info("app_shutdown", service=settings.app_name)
 
@@ -51,8 +59,13 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS is added first so it stays inside the request-context middleware and
-    # still decorates error responses.
+    # Middleware order matters. Starlette runs the LAST-added middleware OUTERMOST,
+    # so we add inner->outer. Effective request order:
+    #   TrustedHost -> [HTTPSRedirect] -> [SecurityHeaders] -> RequestContext
+    #     -> CORS -> RateLimit -> app
+    # RateLimit is inside RequestContext (so its 429 carries the request_id) and
+    # inside CORS (so the 429 gets CORS headers for the browser).
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -61,6 +74,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RequestContextMiddleware)
+    if settings.security_headers_enabled:
+        app.add_middleware(SecurityHeadersMiddleware)
+    if settings.force_https:
+        app.add_middleware(HTTPSRedirectMiddleware)
+    if settings.trusted_hosts != ["*"]:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
     register_exception_handlers(app)
 
