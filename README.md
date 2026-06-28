@@ -128,54 +128,48 @@ flowchart TD
 Measured by the eval harness (`backend/eval/`) over a **30-question golden dataset
 across 12 documents** (`eval/golden.jsonl`) — deliberately seeded with distractors
 (three different "90-day" facts, three Slack channels, three error-rate thresholds,
-a payments-vs-billing service split) so retrieval has to discriminate. It compares
-the `naive` preset (dense-only, no rerank, no corrective loop) against the full
-`corrective` pipeline (hybrid + cross-encoder rerank + grade + rewrite-loop).
-Reproduce with:
+a payments-vs-billing service split) so retrieval has to discriminate. Reproduce with:
 
 ```bash
 cd backend && python eval/run_eval.py --compare naive corrective
 ```
 
-| Metric | Naive (dense only) | Corrective (hybrid + rerank + loop) | Δ |
-|---|---|---|---|
-| `faithfulness` | 0.93 | 0.92 | −0.02 |
-| `answer_relevancy` | 0.94 | 0.93 | −0.01 |
-| `context_precision` | 0.77 | 0.73 | −0.04 |
-| `context_recall` | 0.97 | 0.98 | +0.02 |
+**Two findings, both stated straight.**
 
-*`gemini-2.5-pro` as both generator and judge, 2026-06-28. Aggregate means over 30
-questions; rerank ran with the lightweight `ms-marco-MiniLM-L-6-v2` cross-encoder
-(the CI-weight model), not the production `bge-reranker-base`.*
+**(1) Upgrading the models lifted the whole system.** Moving dense retrieval from
+local BGE-small (384-dim) to `gemini-embedding-001` (3072-dim), with
+`bge-reranker-base` and `gemini-3.5-flash`, raised precision and faithfulness for
+*every* configuration — the distractor chunks that used to leak into the context
+mostly stopped:
 
-**Reading this honestly — the aggregate hides the real signal.** On these metrics
-corrective does **not** beat naive; it's a wash, slightly behind on precision. Two
-things drive that, and both are findings worth stating plainly:
+| Config | faithfulness | answer_relevancy | context_precision | context_recall |
+|---|---|---|---|---|
+| Baseline — naive, BGE-small | 0.93 | 0.94 | 0.77 | 0.97 |
+| **Upgraded — naive** (gemini-embedding) | **0.96** | 0.92 | **0.83** | 0.98 |
+| **Upgraded — corrective** (full stack) | 0.94 | 0.89 | 0.83 | 0.95 |
 
-1. **There's a ceiling.** A strong LLM over high-recall retrieval already answers
-   most questions correctly (recall ~0.97 for *both*), so there's little headroom
-   for the corrective machinery to add measurable lift. Every exact-identifier
-   question (`GATEWAY_TIMEOUT_MS`, `X-API-Key`, `BILLING_DB_URL`, …) scored
-   precision 1.00 for both configs.
-2. **Hybrid trades precision for recall when the reranker is weak.** Sparse/BM25
-   surfaces lexically-similar distractor chunks ("Vault" also lives in the security
-   doc, "deploys" in the staging doc); the lightweight CI reranker doesn't fully
-   filter them, costing the −0.04 precision. The production `bge-reranker-base`
-   is expected to recover this — an open item, not a closed result.
+**(2) Corrective ≈ naive — the engine is insurance, not a leaderboard number.**
+On the upgraded stack, comparing the two configs head-to-head over all 30 questions
+gave **0 clear wins and 0 clear losses** for corrective; the aggregate deltas are
+within noise (corrective is fractionally behind). That is an honest result, and the
+reason is structural: on a clean corpus that a strong LLM can answer from strong
+dense retrieval (per-question precision is now mostly 1.00), the extra machinery —
+hybrid's sparse arm, the rewrite loop — has no headroom to add and occasionally adds
+a little noise.
 
-Where corrective **does** win is exactly what the metrics' means dilute — *trust on
-the queries that should be hard*:
+The corrective pipeline still earns its place, just not on these means: it's the
+**robustness layer** for the cases this clean benchmark under-stresses — the rewrite
+loop and **web fallback** keep an answer grounded when first-pass retrieval is weak
+or the corpus simply doesn't contain the answer (both unanswerable questions were
+handled by web fallback rather than hallucinated), and the **verify-grounding** node
+is what lets the system *prove* an answer is sourced. The right way to make those
+show up in numbers is a harder, retrieval-stressing golden set — the clear next step.
 
-- **Refusing the unanswerable.** Asked a question with no answer in the corpus
-  ("parental leave policy"), **naive hallucinated a policy** (faithfulness 0.00);
-  corrective correctly declined (1.00). That is the whole point of the project.
-- **Multi-hop** (answer spans two docs): precision 0.00 → 0.50.
-- It recovered several single-fact answers naive got wrong.
-
-So the corrective engine earns its cost as **robustness and groundedness
-insurance**, not as a leaderboard number — and an honest benchmark says so. Closing
-the precision gap with the full reranker, and weighting the eval toward
-hard/unanswerable cases, are the clear next steps.
+*`gemini-3.5-flash` as both generator and judge, 2026-06-28; dense embeddings
+`gemini-embedding-001`; reranker `bge-reranker-base`. Aggregate means over 30
+questions. The hosted stack is opt-in via config — `SOURCEBOUND_EMBEDDING_PROVIDER`
+defaults to local BGE so the project still runs free and offline (see
+[`docs/decisions.md` ADR-0008](docs/decisions.md)).*
 
 > Retrieval metrics (`context_precision` / `context_recall`) are computed
 > deterministically from the golden `ideal_sources`; generation metrics

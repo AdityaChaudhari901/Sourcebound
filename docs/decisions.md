@@ -38,11 +38,13 @@ The loop is bounded by `settings.max_query_retries`, which guarantees terminatio
   corpus when needed (web fallback), and self-report confidence (grounding score) —
   all surfaced to the UI. Honest caveat from the eval: on a 30-question / 12-doc set
   with distractors (see the README table), corrective does **not** beat naive on
-  aggregate metrics — a strong LLM over high-recall retrieval leaves little headroom,
-  and hybrid trades some precision when the reranker is weak. Corrective's measured
-  wins are the *robustness* cases the means dilute: it **refused an unanswerable
-  question that naive hallucinated** (faithfulness 0.00 → 1.00) and did better on
-  multi-hop. The engine is groundedness insurance, not a leaderboard number.
+  aggregate metrics — on the upgraded stack the head-to-head was 0 clear wins / 0
+  clear losses. A strong LLM over strong dense retrieval (`gemini-embedding-001`)
+  leaves little headroom for the extra machinery to add on a clean corpus. The engine
+  earns its place as *robustness* — the rewrite loop and web fallback keep answers
+  grounded when first-pass retrieval is weak or the corpus lacks the answer, and the
+  verify node proves groundedness — not as a leaderboard number. Quantifying that
+  needs a harder, retrieval-stressing golden set.
 - **Cost:** more LLM calls per query (grade + optional rewrite + verify on top of
   generate), so higher latency and token cost. We accept this: a fast wrong answer
   is worthless when citations are the product. The extra calls use small/cheap
@@ -219,3 +221,37 @@ Next.js standalone image.
   API to run different code; simpler CI.
 - **Cost:** the worker image carries the API's web deps (and vice versa) — a few MB
   of unused packages per role. Negligible against the drift risk it removes.
+
+---
+
+## ADR-0008 — Hosted Vertex models for accuracy (gemini-3.5-flash + gemini-embedding-001)
+
+**Status:** ✅ Accepted (accuracy build) · reversible by config
+
+### Context
+The eval showed answer accuracy was bounded by retrieval **precision**, and that the
+default stack was running below its potential: local BGE-small (384-dim) embeddings
+and, in CI/dev, a lightweight reranker. We wanted to push accuracy as far as the
+available models allow, while keeping the provider-agnostic design (ADR-0005) intact.
+
+### Decision
+Use the strongest models **actually available to this project** (verified by probing
+the Vertex API, not by trusting the Model Garden catalog):
+- **Generator → `gemini-3.5-flash`** via the `global` endpoint (Gemini 3.x is not
+  served in `us-east5` for this project; `gemini-3-pro-preview` 404s everywhere).
+- **Embeddings → `gemini-embedding-001`** (3072-dim, asymmetric document/query task
+  types) behind the existing `EmbeddingProvider` interface — selected by
+  `SOURCEBOUND_EMBEDDING_PROVIDER=vertex`.
+- **Reranker → `bge-reranker-base`** (the production default) made permanent.
+
+### Consequences
+- **Gain:** stronger dense retrieval (the foundation under grade/rerank/generate) and
+  a newer-generation generator — the levers the eval pointed at.
+- **Cost / trade-off:** this **breaks the "local, free, private" embedding property**
+  of ADR-0005 — every chunk and query now hits Vertex, bills GCP credits, and sends
+  text off-box. Switching embedding providers also requires **re-indexing the corpus**
+  (vector dimension changes 384 → 3072, so the Qdrant collection is recreated).
+- **Reversible:** `SOURCEBOUND_EMBEDDING_PROVIDER=fastembed` restores local BGE (then
+  re-index); the LLM is a one-line `LLM_MODEL` change. Nothing in `services/` changed —
+  the swap is pure config behind the provider interfaces, which is the whole point of
+  ADR-0005.

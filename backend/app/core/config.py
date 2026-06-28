@@ -72,8 +72,9 @@ class Settings(BaseSettings):
     )
 
     # --- Embeddings ---
-    embedding_provider: str = "fastembed"  # interface key; only "fastembed" wired for now
-    embedding_model: str = "BAAI/bge-small-en-v1.5"  # open BGE, 384-dim
+    embedding_provider: str = "fastembed"  # fastembed (local BGE) | vertex (gemini-embedding-001)
+    embedding_model: str = "BAAI/bge-small-en-v1.5"  # open BGE, 384-dim (fastembed)
+    vertex_embedding_model: str = "gemini-embedding-001"  # Vertex dense embeddings, 3072-dim
     sparse_embedding_model: str = "Qdrant/bm25"  # BM25 sparse vectors (lexical)
 
     # --- Retrieval mode + hybrid fusion (weighted Reciprocal Rank Fusion) ---

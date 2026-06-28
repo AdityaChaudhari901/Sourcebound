@@ -59,11 +59,66 @@ class FastEmbedProvider:
         return next(iter(self._model.query_embed(text))).tolist()
 
 
+class VertexEmbeddingProvider:
+    """EmbeddingProvider backed by Vertex AI ``gemini-embedding-001`` (auth via ADC).
+
+    Higher-quality dense retrieval than the local BGE model, at the cost of a
+    hosted call per text (bills GCP credits; data leaves the box). Embeddings are
+    *asymmetric*: documents and queries are embedded with different task types
+    (``RETRIEVAL_DOCUMENT`` / ``RETRIEVAL_QUERY``), which the model is trained to
+    exploit for retrieval. Dimension is probed once and must match the Qdrant
+    collection's vector size.
+    """
+
+    def __init__(self, model_name: str) -> None:
+        from google import genai
+
+        if not settings.vertex_project:
+            raise ValueError("VERTEX_PROJECT_ID is not set for the vertex embedding provider.")
+        self.model_name = model_name
+        self._client = genai.Client(
+            vertexai=True,
+            project=settings.vertex_project,
+            location=settings.vertex_region,
+        )
+        self._dimension: int | None = None
+
+    def _embed(self, texts: list[str], *, task_type: str) -> list[list[float]]:
+        from google.genai import types
+
+        # gemini-embedding-001 on Vertex accepts one input per request, so embed
+        # serially. Fine for ingestion batches at this scale; a high-volume corpus
+        # would parallelize or move embedding to the Celery worker (it already is).
+        vectors: list[list[float]] = []
+        for text in texts:
+            resp = self._client.models.embed_content(
+                model=self.model_name,
+                contents=text,
+                config=types.EmbedContentConfig(task_type=task_type),
+            )
+            vectors.append(list(resp.embeddings[0].values))
+        return vectors
+
+    @property
+    def dimension(self) -> int:
+        if self._dimension is None:
+            self._dimension = len(self._embed(["probe"], task_type="RETRIEVAL_QUERY")[0])
+        return self._dimension
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._embed(texts, task_type="RETRIEVAL_DOCUMENT")
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed([text], task_type="RETRIEVAL_QUERY")[0]
+
+
 @lru_cache(maxsize=1)
 def get_embedding_provider() -> EmbeddingProvider:
     """Return the configured embedding provider (cached; loads the model once)."""
     if settings.embedding_provider == "fastembed":
         return FastEmbedProvider(settings.embedding_model)
+    if settings.embedding_provider == "vertex":
+        return VertexEmbeddingProvider(settings.vertex_embedding_model)
     raise ValueError(f"Unknown embedding provider: {settings.embedding_provider!r}")
 
 
