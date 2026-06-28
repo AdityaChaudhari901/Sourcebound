@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/auth";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", code: "dsh", icon: LayoutGrid, href: "/" },
+  { label: "Dashboard", code: "dsh", icon: LayoutGrid, href: "/dashboard" },
   { label: "Ask", code: "ask", icon: MessageSquareText, href: "/ask" },
   { label: "Sources", code: "src", icon: Database, href: "/sources" },
   { label: "Evaluations", code: "eval", icon: FlaskConical, href: "/evaluations" },
