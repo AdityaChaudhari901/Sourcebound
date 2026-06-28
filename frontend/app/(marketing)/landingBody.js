@@ -20,18 +20,18 @@ const landingBody = `
         <a href="#product" style="font-size:13.5px;color:var(--text-2)">Product</a>
         <a href="#engine" style="font-size:13.5px;color:var(--text-2)">How it works</a>
         <a href="#evaluation" style="font-size:13.5px;color:var(--text-2)">Evaluation</a>
-        <a href="#" style="font-size:13.5px;color:var(--text-2)">Docs</a>
+        <a href="https://github.com/AdityaChaudhari901/Sourcebound/tree/main/docs" style="font-size:13.5px;color:var(--text-2)" target="_blank" rel="noopener noreferrer">Docs</a>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <button id="sb-theme-btn" data-mag aria-label="Toggle theme" style="width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:9px;background:rgba(var(--line-rgb),0.02);color:var(--text-2);cursor:pointer;padding:0">
           <svg class="ic-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
           <svg class="ic-sun" style="display:none" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
         </button>
-        <a href="#" data-mag style="font-size:13.5px;font-weight:500;color:var(--head);padding:8px 14px;border:1px solid var(--border);border-radius:9px;display:inline-flex;align-items:center;gap:8px;background:rgba(var(--line-rgb),0.02)">
+        <a href="https://github.com/AdityaChaudhari901/Sourcebound" data-mag style="font-size:13.5px;font-weight:500;color:var(--head);padding:8px 14px;border:1px solid var(--border);border-radius:9px;display:inline-flex;align-items:center;gap:8px;background:rgba(var(--line-rgb),0.02)" target="_blank" rel="noopener noreferrer">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="opacity:.85"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.87.87 2.33.67.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.83-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.52.56.83 1.28.83 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
           GitHub
         </a>
-        <a href="#" data-mag data-pulse style="font-size:13.5px;font-weight:540;color:var(--accent-contrast);background:var(--accent);padding:9px 16px;border-radius:9px;animation:glowpulse 3.4s ease-in-out infinite">Live demo</a>
+        <a href="/ask" data-mag data-pulse style="font-size:13.5px;font-weight:540;color:var(--accent-contrast);background:var(--accent);padding:9px 16px;border-radius:9px;animation:glowpulse 3.4s ease-in-out infinite">Live demo</a>
       </div>
     </div>
   </nav>
@@ -56,8 +56,8 @@ const landingBody = `
           <p data-anim style="opacity:0;animation:fadeUpBlur .8s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:.38s;margin:26px 0 0;max-width:548px;font-size:18px;line-height:1.62;color:var(--text-2)">A knowledge engine with a self-correcting retrieval pipeline — it grades its own context, fixes weak queries, and verifies every answer is grounded before you see it.</p>
 
           <div data-anim style="opacity:0;animation:fadeUpBlur .8s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:.5s;display:flex;gap:12px;margin-top:34px;flex-wrap:wrap">
-            <a href="#" data-mag data-pulse style="font-size:15px;font-weight:540;color:var(--accent-contrast);background:var(--accent);padding:13px 22px;border-radius:10px;animation:glowpulse 3.4s ease-in-out infinite">View live demo</a>
-            <a href="#" data-mag style="font-size:15px;font-weight:500;color:var(--head);padding:13px 20px;border:1px solid var(--border);border-radius:10px;display:inline-flex;align-items:center;gap:9px;background:rgba(var(--line-rgb),0.02)">
+            <a href="/ask" data-mag data-pulse style="font-size:15px;font-weight:540;color:var(--accent-contrast);background:var(--accent);padding:13px 22px;border-radius:10px;animation:glowpulse 3.4s ease-in-out infinite">View live demo</a>
+            <a href="https://github.com/AdityaChaudhari901/Sourcebound" data-mag style="font-size:15px;font-weight:500;color:var(--head);padding:13px 20px;border:1px solid var(--border);border-radius:10px;display:inline-flex;align-items:center;gap:9px;background:rgba(var(--line-rgb),0.02)" target="_blank" rel="noopener noreferrer">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="opacity:.85"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.87.87 2.33.67.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.83-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.52.56.83 1.28.83 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
               View on GitHub
             </a>
@@ -449,8 +449,8 @@ const landingBody = `
           <div style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent);margin-bottom:18px">/ try it</div>
           <h2 style="margin:0 auto;max-width:740px;font-size:clamp(30px,4vw,48px);line-height:1.08;letter-spacing:-0.03em;font-weight:600;color:var(--head)">See it answer your questions — with receipts.</h2>
           <div style="display:flex;gap:13px;justify-content:center;margin-top:34px;flex-wrap:wrap">
-            <a href="#" data-mag data-pulse style="font-size:15px;font-weight:540;color:var(--accent-contrast);background:var(--accent);padding:13px 24px;border-radius:10px;animation:glowpulse 3.4s ease-in-out infinite">Live demo</a>
-            <a href="#" data-mag style="font-size:15px;font-weight:500;color:var(--head);padding:13px 22px;border:1px solid var(--border);border-radius:10px;display:inline-flex;align-items:center;gap:9px;background:rgba(var(--line-rgb),0.03)">
+            <a href="/ask" data-mag data-pulse style="font-size:15px;font-weight:540;color:var(--accent-contrast);background:var(--accent);padding:13px 24px;border-radius:10px;animation:glowpulse 3.4s ease-in-out infinite">Live demo</a>
+            <a href="https://github.com/AdityaChaudhari901/Sourcebound" data-mag style="font-size:15px;font-weight:500;color:var(--head);padding:13px 22px;border:1px solid var(--border);border-radius:10px;display:inline-flex;align-items:center;gap:9px;background:rgba(var(--line-rgb),0.03)" target="_blank" rel="noopener noreferrer">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="opacity:.85"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.87.87 2.33.67.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.83-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.52.56.83 1.28.83 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
               View on GitHub
             </a>
@@ -477,8 +477,8 @@ const landingBody = `
         <div style="display:flex;gap:64px;flex-wrap:wrap">
           <div style="display:flex;flex-direction:column;gap:12px">
             <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:2px">Project</div>
-            <a href="#" style="font-size:14px;color:var(--text-2)">GitHub</a>
-            <a href="#" style="font-size:14px;color:var(--text-2)">Docs</a>
+            <a href="https://github.com/AdityaChaudhari901/Sourcebound" style="font-size:14px;color:var(--text-2)" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://github.com/AdityaChaudhari901/Sourcebound/tree/main/docs" style="font-size:14px;color:var(--text-2)" target="_blank" rel="noopener noreferrer">Docs</a>
             <a href="#" style="font-size:14px;color:var(--text-2)">LinkedIn</a>
           </div>
         </div>
