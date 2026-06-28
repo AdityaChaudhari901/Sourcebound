@@ -54,9 +54,16 @@ These are **blockers** the code cannot do for you:
 2. **Real secrets from a manager.** Put `JWT_SECRET`, DB password, LLM creds, and the
    Langfuse `NEXTAUTH_SECRET`/`SALT` (also `change-me` defaults) in a secret manager
    (GCP Secret Manager / Vault / SSM), injected at runtime — not in a committed file.
-3. **Production Vertex auth.** Replace the personal-ADC mount in `docker-compose.yml`
-   (`~/.config/gcloud`) with a dedicated **service account** (Workload Identity on
-   GKE/Cloud Run, or a scoped key), least-privilege = `roles/aiplatform.user`.
+3. **Production Vertex auth.** Use a dedicated **service account** instead of personal
+   ADC (least-privilege = `roles/aiplatform.user`). The compose file is already wired
+   for this — set these in the root `.env` and provide the key file:
+   ```bash
+   GCLOUD_CREDS_HOST=/etc/secrets/sourcebound-sa.json   # host path to the SA key
+   GCLOUD_CREDS_TARGET=/var/secrets/gcp-sa.json         # in-container path
+   GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/gcp-sa.json
+   ```
+   On GKE/Cloud Run prefer **Workload Identity** (no key file): leave these unset and
+   bind the SA to the workload — google-auth picks it up automatically.
 4. **Cost guardrails.** Every query hits Vertex twice (embed + generate). Set a **GCP
    billing budget + alert** and Vertex quota limits so abuse can't run up the bill.
    The in-app rate limit is the first line; the budget alert is the backstop.

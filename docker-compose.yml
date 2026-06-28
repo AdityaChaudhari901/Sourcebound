@@ -86,11 +86,20 @@ services:
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
       SOURCEBOUND_CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Empty by default (local dev uses ADC at the well-known path); in production
+      # set this to the mounted service-account key path (see GCLOUD_CREDS_* below).
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
     volumes:
-      # Vertex AI auth: mounts your local gcloud ADC so the container can call Gemini.
-      # Harmless if absent (an empty dir is mounted); only needed when LLM_PROVIDER=vertex.
-      # Switch to an API-key provider (groq/gemini) to drop this dependency.
-      - ${HOME}/.config/gcloud:/home/appuser/.config/gcloud:ro
+      # Vertex AI auth (only needed when LLM_PROVIDER/EMBEDDING_PROVIDER=vertex):
+      #  - Local dev (default): mounts your gcloud ADC to the well-known path; no
+      #    GOOGLE_APPLICATION_CREDENTIALS needed.
+      #  - Production: point GCLOUD_CREDS_HOST at a service-account key FILE, set
+      #    GCLOUD_CREDS_TARGET to its in-container path, and set
+      #    GOOGLE_APPLICATION_CREDENTIALS to that same path. e.g. in the root .env:
+      #      GCLOUD_CREDS_HOST=/etc/secrets/sourcebound-sa.json
+      #      GCLOUD_CREDS_TARGET=/var/secrets/gcp-sa.json
+      #      GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/gcp-sa.json
+      - ${GCLOUD_CREDS_HOST:-${HOME}/.config/gcloud}:${GCLOUD_CREDS_TARGET:-/home/appuser/.config/gcloud}:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -120,8 +129,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sourcebound}:${POSTGRES_PASSWORD:-sourcebound}@postgres:5432/${POSTGRES_DB:-sourcebound}
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
     volumes:
-      - ${HOME}/.config/gcloud:/home/appuser/.config/gcloud:ro
+      # Vertex AI auth — see the api service for the local-ADC vs prod-SA-key options.
+      - ${GCLOUD_CREDS_HOST:-${HOME}/.config/gcloud}:${GCLOUD_CREDS_TARGET:-/home/appuser/.config/gcloud}:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
