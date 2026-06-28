@@ -479,7 +479,7 @@ const landingBody = `
             <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:2px">Project</div>
             <a href="https://github.com/AdityaChaudhari901/Sourcebound" style="font-size:14px;color:var(--text-2)" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="https://github.com/AdityaChaudhari901/Sourcebound/tree/main/docs" style="font-size:14px;color:var(--text-2)" target="_blank" rel="noopener noreferrer">Docs</a>
-            <a href="#" style="font-size:14px;color:var(--text-2)">LinkedIn</a>
+            <a href="https://www.linkedin.com/in/aditya-chaudhari-ai/" target="_blank" rel="noopener noreferrer" style="font-size:14px;color:var(--text-2)">LinkedIn</a>
           </div>
         </div>
       </div>
