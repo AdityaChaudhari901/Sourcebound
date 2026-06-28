@@ -13,3 +13,18 @@
 {"question": "What error rate triggers a rollback?", "ground_truth": "An error rate above 2% after a deploy.", "ideal_sources": ["deploys.md"]}
 {"question": "On which days do production deploys happen?", "ground_truth": "On Tuesdays and Thursdays.", "ideal_sources": ["deploys.md"]}
 {"question": "How long does the blue-green traffic shift take?", "ground_truth": "Traffic is shifted over 10 minutes.", "ideal_sources": ["deploys.md"]}
+{"question": "Which environment variable points the billing service at its database?", "ground_truth": "The BILLING_DB_URL environment variable.", "ideal_sources": ["billing.md"]}
+{"question": "What port does the API gateway listen on?", "ground_truth": "Port 8443.", "ideal_sources": ["api-gateway.md"]}
+{"question": "What is the default value of GATEWAY_TIMEOUT_MS?", "ground_truth": "It defaults to 30000, which is 30 seconds.", "ideal_sources": ["api-gateway.md"]}
+{"question": "Which HTTP header authenticates a request to the API gateway?", "ground_truth": "The X-API-Key header.", "ideal_sources": ["api-gateway.md"]}
+{"question": "How long are database backups retained?", "ground_truth": "Database backups are retained for 90 days.", "ideal_sources": ["data-retention.md"]}
+{"question": "What does the security policy require for secret rotation across all services?", "ground_truth": "Every secret must be rotated at least every 90 days, regardless of which service owns it.", "ideal_sources": ["security.md"]}
+{"question": "Which Slack channel is used to report a production incident?", "ground_truth": "The #incidents channel.", "ideal_sources": ["incident-response.md"]}
+{"question": "At what error rate does the alerting system page the on-call engineer?", "ground_truth": "When the production error rate exceeds 1% over a five-minute window.", "ideal_sources": ["alerting.md"]}
+{"question": "At what production error rate is a SEV1 incident declared?", "ground_truth": "When the production error rate exceeds 5%.", "ideal_sources": ["incident-response.md"]}
+{"question": "After a customer closes their account, when is their personal data removed?", "ground_truth": "Personal information is purged within 30 days to comply with GDPR.", "ideal_sources": ["data-retention.md"]}
+{"question": "Who is notified first when production goes down in the middle of the night?", "ground_truth": "The on-call engineer is paged via PagerDuty, escalating to the secondary on-call after 15 minutes.", "ideal_sources": ["incident-response.md"]}
+{"question": "How long are application logs kept before they are deleted?", "ground_truth": "Application logs are retained for 30 days.", "ideal_sources": ["observability.md"]}
+{"question": "What approvals and schedule apply before a change reaches production?", "ground_truth": "A pull request needs at least two approvals to merge, and production deploys happen on Tuesdays and Thursdays.", "ideal_sources": ["onboarding.md", "deploys.md"]}
+{"question": "What is the company's parental leave policy?", "ground_truth": "This is not covered by the available sources.", "ideal_sources": []}
+{"question": "Which cloud provider hosts the production cluster?", "ground_truth": "This is not covered by the available sources.", "ideal_sources": []}

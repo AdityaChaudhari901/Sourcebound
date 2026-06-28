@@ -213,9 +213,10 @@ returns the standard envelope `{ "error": { "code", "message", "details" } }`.
 
 ## 7. Evaluation harness
 
-`backend/eval/` runs the compiled graph over a 15-question golden dataset
-(`eval/golden.jsonl`) and scores four metrics, split by which half of the pipeline
-they diagnose:
+`backend/eval/` runs the compiled graph over a 30-question golden dataset across 12
+documents (`eval/golden.jsonl`, seeded with distractors so retrieval must
+discriminate) and scores four metrics, split by which half of the pipeline they
+diagnose:
 
 | Stage | Metric | How it's measured |
 |---|---|---|

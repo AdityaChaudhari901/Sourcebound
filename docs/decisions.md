@@ -36,10 +36,13 @@ The loop is bounded by `settings.max_query_retries`, which guarantees terminatio
 ### Consequences
 - **Gain:** the pipeline can recover from bad retrieval (rewrite), escape its own
   corpus when needed (web fallback), and self-report confidence (grounding score) —
-  all surfaced to the UI. On an *easy* golden set where first-pass retrieval always
-  succeeds, corrective and naive tie (see the README table) — the loop and fallback
-  are insurance that pays off on weak-retrieval queries, not a free lift on already-
-  answerable ones.
+  all surfaced to the UI. Honest caveat from the eval: on a 30-question / 12-doc set
+  with distractors (see the README table), corrective does **not** beat naive on
+  aggregate metrics — a strong LLM over high-recall retrieval leaves little headroom,
+  and hybrid trades some precision when the reranker is weak. Corrective's measured
+  wins are the *robustness* cases the means dilute: it **refused an unanswerable
+  question that naive hallucinated** (faithfulness 0.00 → 1.00) and did better on
+  multi-hop. The engine is groundedness insurance, not a leaderboard number.
 - **Cost:** more LLM calls per query (grade + optional rewrite + verify on top of
   generate), so higher latency and token cost. We accept this: a fast wrong answer
   is worthless when citations are the product. The extra calls use small/cheap

@@ -125,10 +125,13 @@ flowchart TD
 
 ## Results: naive vs. corrective
 
-Measured by the eval harness (`backend/eval/`) over the 15-question golden dataset
-(`eval/golden.jsonl`), comparing the `naive` preset (dense-only, no rerank, no
-corrective loop) against the full `corrective` pipeline (hybrid + rerank + grade +
-rewrite-loop). Reproduce with:
+Measured by the eval harness (`backend/eval/`) over a **30-question golden dataset
+across 12 documents** (`eval/golden.jsonl`) — deliberately seeded with distractors
+(three different "90-day" facts, three Slack channels, three error-rate thresholds,
+a payments-vs-billing service split) so retrieval has to discriminate. It compares
+the `naive` preset (dense-only, no rerank, no corrective loop) against the full
+`corrective` pipeline (hybrid + cross-encoder rerank + grade + rewrite-loop).
+Reproduce with:
 
 ```bash
 cd backend && python eval/run_eval.py --compare naive corrective
@@ -136,26 +139,43 @@ cd backend && python eval/run_eval.py --compare naive corrective
 
 | Metric | Naive (dense only) | Corrective (hybrid + rerank + loop) | Δ |
 |---|---|---|---|
-| `faithfulness` | 0.97 | 0.97 | +0.00 |
-| `answer_relevancy` | 1.00 | 1.00 | +0.00 |
-| `context_precision` | 0.97 | 0.93 | −0.03 |
-| `context_recall` | 1.00 | 1.00 | +0.00 |
+| `faithfulness` | 0.93 | 0.92 | −0.02 |
+| `answer_relevancy` | 0.94 | 0.93 | −0.01 |
+| `context_precision` | 0.77 | 0.73 | −0.04 |
+| `context_recall` | 0.97 | 0.98 | +0.02 |
 
-*Run with `LLM_PROVIDER=vertex`, `gemini-2.5-pro` as both generator and judge,
-2026-06-27. Aggregate means over 15 questions.*
+*`gemini-2.5-pro` as both generator and judge, 2026-06-28. Aggregate means over 30
+questions; rerank ran with the lightweight `ms-marco-MiniLM-L-6-v2` cross-encoder
+(the CI-weight model), not the production `bge-reranker-base`.*
 
-**Reading this honestly:** on this golden set the two configs are a tie — naive
-dense retrieval already hits 0.97 faithfulness and perfect recall, because every
-question is directly answerable from the corpus. The corrective machinery (rewrite
-loop, web fallback) **never needed to fire** here — every question retrieved
-relevant context on the first pass — so the comparison mostly isolates *hybrid +
-rerank* vs *dense*, which trades a hair of precision (more lexical matches beyond
-the labelled ideal sources) for the same recall and faithfulness. The corrective
-engine's value is **robustness on queries this small set doesn't stress** — when
-first-pass retrieval *is* weak, the loop and fallback are what keep an answer
-grounded instead of hallucinated, and the verify node (which scored grounding 1.0
-across this set) is what proves it. A larger, harder golden set is the right way to
-quantify that; the harness and presets are built for it.
+**Reading this honestly — the aggregate hides the real signal.** On these metrics
+corrective does **not** beat naive; it's a wash, slightly behind on precision. Two
+things drive that, and both are findings worth stating plainly:
+
+1. **There's a ceiling.** A strong LLM over high-recall retrieval already answers
+   most questions correctly (recall ~0.97 for *both*), so there's little headroom
+   for the corrective machinery to add measurable lift. Every exact-identifier
+   question (`GATEWAY_TIMEOUT_MS`, `X-API-Key`, `BILLING_DB_URL`, …) scored
+   precision 1.00 for both configs.
+2. **Hybrid trades precision for recall when the reranker is weak.** Sparse/BM25
+   surfaces lexically-similar distractor chunks ("Vault" also lives in the security
+   doc, "deploys" in the staging doc); the lightweight CI reranker doesn't fully
+   filter them, costing the −0.04 precision. The production `bge-reranker-base`
+   is expected to recover this — an open item, not a closed result.
+
+Where corrective **does** win is exactly what the metrics' means dilute — *trust on
+the queries that should be hard*:
+
+- **Refusing the unanswerable.** Asked a question with no answer in the corpus
+  ("parental leave policy"), **naive hallucinated a policy** (faithfulness 0.00);
+  corrective correctly declined (1.00). That is the whole point of the project.
+- **Multi-hop** (answer spans two docs): precision 0.00 → 0.50.
+- It recovered several single-fact answers naive got wrong.
+
+So the corrective engine earns its cost as **robustness and groundedness
+insurance**, not as a leaderboard number — and an honest benchmark says so. Closing
+the precision gap with the full reranker, and weighting the eval toward
+hard/unanswerable cases, are the clear next steps.
 
 > Retrieval metrics (`context_precision` / `context_recall`) are computed
 > deterministically from the golden `ideal_sources`; generation metrics
