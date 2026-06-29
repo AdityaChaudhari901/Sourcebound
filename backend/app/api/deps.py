@@ -11,9 +11,10 @@ from typing import Annotated
 from fastapi import Depends, Header
 from sqlalchemy import select
 
-from app.core.errors import UnauthorizedError
+from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.security import Principal, decode_access_token, hash_api_key
 from app.database.models import ApiKey, User
+from app.services.demo_service import DEMO_EMAIL
 from app.database.session import DbSession
 
 
@@ -63,3 +64,16 @@ async def get_current_principal(
 
 
 CurrentPrincipal = Annotated[Principal, Depends(get_current_principal)]
+
+
+async def forbid_demo(principal: CurrentPrincipal) -> Principal:
+    """Block mutations for the shared demo workspace (it's read-only)."""
+    if principal.email == DEMO_EMAIL:
+        raise ForbiddenError(
+            "The demo workspace is read-only. Sign up to ingest and manage your own sources."
+        )
+    return principal
+
+
+# Use on write endpoints (ingest, delete, settings) to keep the demo read-only.
+NotDemoPrincipal = Annotated[Principal, Depends(forbid_demo)]

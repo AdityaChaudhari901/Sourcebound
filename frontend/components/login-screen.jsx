@@ -10,14 +10,27 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function LoginScreen() {
-  const { login, signup } = useAuth();
+  const { login, signup, demoLogin } = useAuth();
   const [mode, setMode] = useState("login"); // login | signup
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
 
   const isSignup = mode === "signup";
+
+  const tryDemo = async () => {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    setError(null);
+    try {
+      await demoLogin();
+    } catch (err) {
+      setError(err?.message ?? "Could not start the demo.");
+      setDemoBusy(false);
+    }
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -94,6 +107,31 @@ export function LoginScreen() {
             )}
           </Button>
         </form>
+
+        <div className="flex items-center gap-3">
+          <span className="bg-border h-px flex-1" />
+          <span className="text-muted-foreground text-xs">or</span>
+          <span className="bg-border h-px flex-1" />
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={demoBusy}
+          onClick={tryDemo}
+        >
+          {demoBusy ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> Starting demo…
+            </>
+          ) : (
+            "Try the demo — no sign-up"
+          )}
+        </Button>
+        <p className="text-muted-foreground text-center text-xs">
+          A shared, read-only workspace pre-loaded with sample docs.
+        </p>
 
         <p className="text-muted-foreground text-center text-xs">
           {isSignup ? "Already have an account?" : "No account yet?"}{" "}

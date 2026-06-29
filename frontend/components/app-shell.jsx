@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-import { useAuth } from "@/lib/auth";
+import { useAuth, isDemoUser } from "@/lib/auth";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 const NAV_ITEMS = [
@@ -157,6 +157,12 @@ export function AppShell({ children }) {
 
       {/* Main column */}
       <div className="flex min-h-screen min-w-0 flex-col lg:min-h-0">
+        {isDemoUser(user) && (
+          <div className="bg-primary/10 text-primary border-primary/20 shrink-0 border-b px-4 py-2 text-center text-xs sm:px-6">
+            Demo workspace — read-only, pre-loaded with sample docs. Sign up to add your own
+            sources.
+          </div>
+        )}
         <header className="border-border bg-background flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button

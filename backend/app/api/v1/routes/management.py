@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, status
 from sqlalchemy import func, select
 
-from app.api.deps import CurrentPrincipal
+from app.api.deps import CurrentPrincipal, NotDemoPrincipal
 from app.core.errors import NotFoundError
 from app.database.models import (
     Chunk,
@@ -67,7 +67,7 @@ async def list_documents(principal: CurrentPrincipal, db: DbSession) -> list[Doc
     response_model=ReingestResponse,
 )
 async def reingest_document(
-    document_id: UUID, principal: CurrentPrincipal, db: DbSession
+    document_id: UUID, principal: NotDemoPrincipal, db: DbSession
 ) -> ReingestResponse:
     document = await db.get(Document, document_id)
     if document is None or document.tenant_id != principal.tenant_id:

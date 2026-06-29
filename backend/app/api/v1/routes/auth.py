@@ -5,9 +5,11 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, status
+from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import select
 
 from app.api.deps import CurrentPrincipal
-from app.database.models import Tenant
+from app.database.models import Document, Tenant
 from app.database.session import DbSession
 from app.schemas.auth import (
     ApiKeyCreatedResponse,
@@ -19,7 +21,7 @@ from app.schemas.auth import (
     UserOut,
     WorkspaceOut,
 )
-from app.services import auth_service
+from app.services import auth_service, demo_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,6 +36,19 @@ async def signup(payload: SignupRequest, db: DbSession) -> TokenResponse:
 async def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
     user = await auth_service.authenticate(db, email=payload.email, password=payload.password)
     return TokenResponse(access_token=auth_service.issue_token(user))
+
+
+@router.post("/demo", response_model=TokenResponse)
+async def demo_login(db: DbSession) -> TokenResponse:
+    """Enter the shared, read-only demo workspace — no signup. Idempotently
+    provisions the demo user and seeds the sample corpus on first use."""
+    user = await demo_service.ensure_demo_user(db)
+    has_docs = await db.scalar(
+        select(Document.id).where(Document.tenant_id == user.tenant_id).limit(1)
+    )
+    if has_docs is None:
+        await run_in_threadpool(demo_service.seed_demo_corpus_sync, user.tenant_id)
+    return TokenResponse(access_token=demo_service.issue_demo_token(user))
 
 
 @router.get("/me", response_model=UserOut)

@@ -59,11 +59,24 @@ export function AuthProvider({ children }) {
     [persist],
   );
 
+  // Enter the shared, read-only demo workspace — no signup required.
+  const demoLogin = useCallback(async () => {
+    const res = await api.post("/auth/demo", {});
+    persist(res.access_token);
+  }, [persist]);
+
   return (
-    <AuthContext.Provider value={{ token, user, ready, login, signup, logout }}>
+    <AuthContext.Provider value={{ token, user, ready, login, signup, logout, demoLogin }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+// The demo workspace's fixed account — used to surface read-only UI affordances.
+export const DEMO_EMAIL = "demo@sourcebound.local";
+
+export function isDemoUser(user) {
+  return user?.email === DEMO_EMAIL;
 }
 
 export function useAuth() {
