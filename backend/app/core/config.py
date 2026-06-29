@@ -76,6 +76,11 @@ class Settings(BaseSettings):
         default="sourcebound_chunks",
         validation_alias=AliasChoices("QDRANT_COLLECTION", "SOURCEBOUND_QDRANT_COLLECTION"),
     )
+    # Required by managed Qdrant (e.g. Qdrant Cloud); unset for local self-hosted.
+    qdrant_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("QDRANT_API_KEY", "SOURCEBOUND_QDRANT_API_KEY"),
+    )
 
     # --- Embeddings ---
     embedding_provider: str = "fastembed"  # fastembed (local BGE) | vertex (gemini-embedding-001)

@@ -21,7 +21,8 @@ SPARSE_VECTOR = "sparse"
 
 @lru_cache(maxsize=1)
 def get_qdrant_client() -> QdrantClient:
-    return QdrantClient(url=settings.qdrant_url)
+    api_key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
+    return QdrantClient(url=settings.qdrant_url, api_key=api_key)
 
 
 def ensure_collection(client: QdrantClient, name: str, dense_size: int) -> None:
