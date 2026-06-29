@@ -15,6 +15,7 @@ RUN pip install -r requirements.txt
 
 # Application code + Alembic config (migrations live in app/database/migrations).
 COPY alembic.ini .
+COPY start.sh .
 COPY app ./app
 
 # Run as a non-root user.

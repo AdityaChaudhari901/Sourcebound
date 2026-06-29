@@ -19,9 +19,10 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeploy: true
-    # Free tier has no separate pre-deploy step, so run migrations at startup
-    # (alembic upgrade head is idempotent) before launching uvicorn on $PORT.
-    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    # Free tier has no separate pre-deploy step, so migrate at startup via
+    # start.sh (alembic upgrade head, then uvicorn). A script avoids shell-quoting
+    # issues with an inline command.
+    dockerCommand: sh start.sh
     envVars:
       # --- non-secret config (committed) ---
       - key: SOURCEBOUND_ENVIRONMENT

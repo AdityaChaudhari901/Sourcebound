@@ -106,12 +106,9 @@ required, and embeddings default to local BGE.
    - **Instance type:** Free
    - **Region:** Virginia (US East) — matches Neon + Qdrant
    - **Health Check Path:** `/health`
-   - **Docker Command** (override the default): migrations run at **startup**, because
-     Render's free tier has **no separate pre-deploy step**:
-     ```
-     sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-     ```
-     (`alembic upgrade head` is idempotent — safe to run on every start.)
+   - **Docker Command** (override the default): `sh start.sh` — it runs migrations
+     then uvicorn at **startup**, because Render's free tier has **no separate
+     pre-deploy step** (`alembic upgrade head` is idempotent, safe every start).
 3. **Environment variables** 🔐 (Render dashboard → Environment). Paste the values you
    saved above plus these. **Generate `JWT_SECRET` yourself** with
    `openssl rand -hex 32` — never reuse a default:
