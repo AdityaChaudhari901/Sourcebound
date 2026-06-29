@@ -131,6 +131,44 @@ required, and embeddings default to local BGE.
 
 ---
 
+### Variant — use Google Cloud credits via Vertex (stronger models)
+
+If you have GCP credits and want the better stack (`gemini-3.5-flash` +
+`gemini-embedding-001`, see [ADR-0008](decisions.md)), use Vertex instead of the
+free Gemini API + local BGE. Usage is billed to your **credits** (a demo spends a
+tiny fraction) — but credits are real spend, so heed the flags below.
+
+**GCP setup (you do this):**
+1. GCP Console → **IAM & Admin → Service Accounts** → create one → grant role
+   **Vertex AI User** (`roles/aiplatform.user`). 🔐
+2. Create a **JSON key** and download it.
+3. Render → your service → **Environment → Secret Files** → add the JSON as
+   `gcp-sa.json` (Render mounts it at `/etc/secrets/gcp-sa.json`).
+
+**Env vars — replace the `gemini`/BGE ones from Step 2 with:**
+```
+LLM_PROVIDER=vertex
+LLM_MODEL=gemini-3.5-flash
+VERTEX_PROJECT_ID=<your GCP project id>
+VERTEX_REGION=global
+SOURCEBOUND_EMBEDDING_PROVIDER=vertex
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/gcp-sa.json
+```
+Drop `GOOGLE_API_KEY`. Keep the lightweight reranker for 512 MB (Vertex embeddings
+run via API, so there's no big local embedding model — only the reranker is local).
+No code change is needed: the app authenticates to Vertex through
+`GOOGLE_APPLICATION_CREDENTIALS` automatically.
+
+**💳 Cost flags (credits are still real money):**
+- **Check credit expiry** (GCP console → *View expiry details*). After credits expire
+  or run out, usage bills your card (pay-as-you-go).
+- **Set a GCP budget alert** at a low threshold so a hammered public demo can't
+  silently drain credits.
+- **Keep rate limiting ON** for this path (use Upstash) — it's your guardrail against
+  credit burn under abuse.
+
+---
+
 ## Step 3 — Seed the public demo corpus
 
 The demo is self-seeding: the first call to `POST /auth/demo` provisions the shared
