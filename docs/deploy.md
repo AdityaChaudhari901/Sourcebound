@@ -62,11 +62,15 @@ For each, sign up, create the resource, and copy the connection string somewhere
 ### Neon (Postgres) 🔐
 1. neon.tech → sign up → **Create project**.
 2. Copy the **connection string**. It looks like
-   `postgresql://USER:PASSWORD@HOST/neondb?sslmode=require`.
-3. Sourcebound needs the **async** driver — change the scheme to `postgresql+asyncpg`
-   and keep the rest:
-   `postgresql+asyncpg://USER:PASSWORD@HOST/neondb` (drop `?sslmode=require`; asyncpg
-   uses SSL automatically to Neon). Save this as your **`DATABASE_URL`**.
+   `postgresql://USER:PASSWORD@HOST/neondb?sslmode=require&channel_binding=require`.
+3. Sourcebound needs the **async** driver — change **only the scheme**
+   `postgresql://` → `postgresql+asyncpg://` and keep everything else (you can leave
+   the `?sslmode=require&channel_binding=require` on the end). The app strips those
+   libpq-only params and turns on SSL for you. Save the result as your
+   **`DATABASE_URL`**, e.g.
+   `postgresql+asyncpg://USER:PASSWORD@HOST/neondb?sslmode=require&channel_binding=require`.
+   (Neon's default endpoint or the `-pooler` one both work — the app disables the
+   prepared-statement cache so the pooler is happy.)
 
 ### Qdrant Cloud (vectors) 🔐
 1. cloud.qdrant.io → sign up → **Create a free cluster** (1 GB).
