@@ -145,8 +145,8 @@ mostly stopped:
 | Config | faithfulness | answer_relevancy | context_precision | context_recall |
 |---|---|---|---|---|
 | Baseline — naive, BGE-small | 0.93 | 0.94 | 0.77 | 0.97 |
-| **Upgraded — naive** (gemini-embedding) | **0.96** | 0.92 | **0.83** | 0.98 |
-| **Upgraded — corrective** (full stack) | 0.94 | 0.89 | 0.83 | 0.95 |
+| **Upgraded — naive** (gemini-embedding) | 0.94 | 0.91 | 0.82 | 0.95 |
+| **Upgraded — corrective** (full stack) | 0.94 | 0.89 | **0.83** | 0.95 |
 
 **(2) Corrective ≈ naive — the engine is insurance, not a leaderboard number.**
 On the upgraded stack, comparing the two configs head-to-head over all 30 questions
@@ -157,6 +157,22 @@ dense retrieval (per-question precision is now mostly 1.00), the extra machinery
 hybrid's sparse arm, the rewrite loop — has no headroom to add and occasionally adds
 a little noise.
 
+The **per-category** breakdown (`--compare` reports this now) shows where the small
+differences actually live — corrective's cross-encoder rerank sharpens *factual*
+precision, its graceful-degradation path lifts *unanswerable* faithfulness, and
+hybrid's sparse arm costs a little *distractor* precision:
+
+| Category | n | faithfulness (naive → corrective) | precision (naive → corrective) |
+|---|---|---|---|
+| factual | 16 | 0.93 → 0.93 | 0.88 → **0.94** |
+| distractor | 11 | 0.95 → 0.95 | 0.91 → 0.86 |
+| multi-hop | 1 | 1.00 → 1.00 | 0.50 → 0.50 |
+| unanswerable | 2 | 0.85 → **0.90** | 0.00 → 0.00 |
+
+(`unanswerable` precision is 0 by construction — there are no ideal sources to hit;
+faithfulness is what matters there, and corrective edges ahead by refusing/grounding
+rather than guessing. `multi-hop` is a single question — directional, not significant.)
+
 The corrective pipeline still earns its place, just not on these means: it's the
 **robustness layer** for the cases this clean benchmark under-stresses — the rewrite
 loop and **web fallback** keep an answer grounded when first-pass retrieval is weak
@@ -165,7 +181,7 @@ handled by web fallback rather than hallucinated), and the **verify-grounding** 
 is what lets the system *prove* an answer is sourced. The right way to make those
 show up in numbers is a harder, retrieval-stressing golden set — the clear next step.
 
-*`gemini-3.5-flash` as both generator and judge, 2026-06-28; dense embeddings
+*`gemini-3.5-flash` as both generator and judge, 2026-06-29; dense embeddings
 `gemini-embedding-001`; reranker `bge-reranker-base`. Aggregate means over 30
 questions. The hosted stack is opt-in via config — `SOURCEBOUND_EMBEDDING_PROVIDER`
 defaults to local BGE so the project still runs free and offline (see
