@@ -20,8 +20,12 @@ if config.config_file_name is not None:
 from app.core.config import settings  # noqa: E402
 from app.database.base import Base  # noqa: E402
 from app.database import models  # noqa: E402,F401  (import registers the models)
+from app.database.session import _prepare_url  # noqa: E402
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Strip libpq-only params (sslmode/channel_binding from managed Postgres like Neon)
+# so asyncpg accepts the URL; SSL is enabled via connect_args below instead.
+_clean_url, _ssl_required = _prepare_url(settings.database_url)
+config.set_main_option("sqlalchemy.url", _clean_url)
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -75,6 +79,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"ssl": True, "statement_cache_size": 0} if _ssl_required else {},
     )
 
     async with connectable.connect() as connection:
