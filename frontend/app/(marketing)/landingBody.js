@@ -9,12 +9,9 @@ const landingBody = `
   <!-- ===================== NAV ===================== -->
   <nav id="sb-nav" style="position:fixed;top:0;left:0;right:0;z-index:40;transition:height .3s ease,background .3s ease,border-color .3s ease;height:74px;background:rgba(var(--bg-rgb),0);border-bottom:1px solid transparent">
     <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;height:100%">
-      <a href="#top" style="display:flex;align-items:center;gap:11px">
-        <span style="position:relative;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center">
-          <span style="position:absolute;inset:0;border:1.5px solid var(--accent);border-radius:5px"></span>
-          <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(var(--accent-rgb),0.7)"></span>
-        </span>
-        <span style="font-weight:600;font-size:16px;letter-spacing:-0.01em;color:var(--head)">Sourcebound</span>
+      <a href="#top" style="display:flex;align-items:center">
+        <img src="/images/sourcebound-logo.png" alt="Sourcebound" class="sb-brand sb-brand-dark" style="height:24px;width:auto" />
+        <img src="/images/sourcebound-logo-light.png" alt="Sourcebound" class="sb-brand sb-brand-light" style="height:24px;width:auto" />
       </a>
       <div class="navlinks">
         <a href="#product" style="font-size:13.5px;color:var(--text-2)">Product</a>

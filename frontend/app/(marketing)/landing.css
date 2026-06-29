@@ -69,3 +69,8 @@
     [data-anim],[data-reveal]{animation:none!important;opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
     .marquee-track,.aurora,.grain,.ring{animation:none!important}
   }
+
+/* Brand wordmark swaps with the theme (dark variant default). */
+.sb-brand-light{display:none}
+:root[data-theme="light"] .sb-brand-dark{display:none}
+:root[data-theme="light"] .sb-brand-light{display:inline-block}

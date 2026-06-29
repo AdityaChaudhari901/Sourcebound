@@ -50,8 +50,7 @@ export function LoginScreen() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex items-center gap-2.5">
-          <span className="bg-primary h-4 w-[3px] rounded-full" aria-hidden />
-          <span className="text-sm font-semibold tracking-tight">Sourcebound</span>
+          <img src="/images/sourcebound-logo.png" alt="Sourcebound" className="h-6 w-auto" />
         </div>
 
         <div>

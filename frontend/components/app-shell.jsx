@@ -68,8 +68,7 @@ export function AppShell({ children }) {
       >
         <div className="border-border flex h-14 items-center justify-between gap-2.5 border-b px-5">
           <div className="flex items-center gap-2.5">
-            <span className="bg-primary h-4 w-[3px] rounded-full" aria-hidden />
-            <span className="text-sm font-semibold tracking-tight">Sourcebound</span>
+            <img src="/images/sourcebound-logo.png" alt="Sourcebound" className="h-5 w-auto" />
           </div>
           <button
             type="button"
