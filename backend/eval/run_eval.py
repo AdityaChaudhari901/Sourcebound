@@ -226,6 +226,46 @@ def print_delta(a_name: str, b_name: str, a: Scores, b: Scores) -> None:
     print("-" * 56)
 
 
+def _by_category(results: list[tuple[dict, Scores]]) -> tuple[dict[str, Scores], dict[str, int]]:
+    """Aggregate scores per question category (factual / distractor / multi_hop / ...)."""
+    groups: dict[str, list[Scores]] = {}
+    for row, s in results:
+        groups.setdefault(row.get("category", "uncategorized"), []).append(s)
+    aggregated = {
+        cat: Scores(
+            faithfulness=_mean([s.faithfulness for s in g]),
+            answer_relevancy=_mean([s.answer_relevancy for s in g]),
+            context_precision=_mean([s.context_precision for s in g]),
+            context_recall=_mean([s.context_recall for s in g]),
+        )
+        for cat, g in groups.items()
+    }
+    return aggregated, {cat: len(g) for cat, g in groups.items()}
+
+
+def print_category_delta(
+    a_name: str,
+    b_name: str,
+    results_a: list[tuple[dict, Scores]],
+    results_b: list[tuple[dict, Scores]],
+) -> None:
+    """Per-category faithfulness + precision — surfaces where the corrective engine
+    helps (multi_hop, unanswerable) even when aggregate means are close."""
+    cats_a, counts = _by_category(results_a)
+    cats_b, _ = _by_category(results_b)
+    order = ["factual", "distractor", "multi_hop", "unanswerable"]
+    cats = [c for c in order if c in cats_a] + [c for c in cats_a if c not in order]
+    print(f"\nPER-CATEGORY  (faithfulness | precision)   {a_name} -> {b_name}\n")
+    print(f"{'category':<14}{'n':>3}   {'faith':>13}   {'precision':>13}")
+    print("-" * 52)
+    for c in cats:
+        a, b = cats_a[c], cats_b[c]
+        faith = f"{a.faithfulness:.2f}->{b.faithfulness:.2f}"
+        prec = f"{a.context_precision:.2f}->{b.context_precision:.2f}"
+        print(f"{c:<14}{counts[c]:>3}   {faith:>13}   {prec:>13}")
+    print("-" * 52)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the RAG eval harness.")
     parser.add_argument("--dataset", default=str(Path(__file__).resolve().parent / "golden.jsonl"))
@@ -260,6 +300,7 @@ def main() -> int:
             results_b, agg_b = run_dataset(dataset, tenant_id, args.k)
             persist_run(f"{dataset_name} [{b_name}]", results_b, agg_b)
         print_delta(a_name, b_name, agg_a, agg_b)
+        print_category_delta(a_name, b_name, results_a, results_b)
         return 0
 
     print(f"Running {len(dataset)} question(s) through the pipeline...\n")
