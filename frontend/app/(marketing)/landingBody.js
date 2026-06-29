@@ -189,15 +189,15 @@ const landingBody = `
           <img class="sb-logo" src="images/logos/fastapi.png" alt="FastAPI" style="height:23px">
           <span class="sb-logo-txt">LangGraph</span>
           <img class="sb-logo" src="images/logos/qdrant.png" alt="Qdrant" style="height:25px">
-          <img class="sb-logo" src="images/logos/postgresql.png" alt="PostgreSQL" style="height:21px">
+          <img class="sb-logo" src="images/logos/postgresql.jpg" alt="PostgreSQL" style="height:21px">
           <img class="sb-logo" src="images/logos/langfuse.png" alt="Langfuse" style="height:23px">
-          <img class="sb-logo" src="images/logos/nextjs.png" alt="Next.js" style="height:18px">
+          <img class="sb-logo" src="images/logos/nextjs.svg" alt="Next.js" style="height:18px">
           <img class="sb-logo" src="images/logos/fastapi.png" alt="FastAPI" style="height:23px">
           <span class="sb-logo-txt">LangGraph</span>
           <img class="sb-logo" src="images/logos/qdrant.png" alt="Qdrant" style="height:25px">
-          <img class="sb-logo" src="images/logos/postgresql.png" alt="PostgreSQL" style="height:21px">
+          <img class="sb-logo" src="images/logos/postgresql.jpg" alt="PostgreSQL" style="height:21px">
           <img class="sb-logo" src="images/logos/langfuse.png" alt="Langfuse" style="height:23px">
-          <img class="sb-logo" src="images/logos/nextjs.png" alt="Next.js" style="height:18px">
+          <img class="sb-logo" src="images/logos/nextjs.svg" alt="Next.js" style="height:18px">
         </div>
       </div>
     </div>
