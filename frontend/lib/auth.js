@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 
 import { api, setAuthToken, setUnauthorizedHandler } from "@/lib/api";
 
-const TOKEN_KEY = "sb_token";
+export const TOKEN_KEY = "sb_token";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
