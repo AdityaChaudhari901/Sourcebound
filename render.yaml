@@ -1,0 +1,55 @@
+# Render Blueprint for the Sourcebound demo API (free tier, Vertex via GCP credits).
+#
+# Use it: Render → New → Blueprint → pick this repo. It pre-creates the web service
+# with the right build/runtime/health settings and lists the env vars. You then:
+#   1. fill the secret values (the `sync: false` ones below) in the dashboard, and
+#   2. add a Secret File named `gcp-sa.json` (paste your service-account JSON) —
+#      Blueprints can't define secret files, so this one step is manual. It mounts
+#      at /etc/secrets/gcp-sa.json, which GOOGLE_APPLICATION_CREDENTIALS points to.
+#
+# Prefer free Gemini API + local BGE instead of Vertex? Swap the LLM_PROVIDER/
+# LLM_MODEL/EMBEDDING lines per docs/deploy.md and add GOOGLE_API_KEY (sync:false).
+services:
+  - type: web
+    name: sourcebound-api
+    runtime: docker
+    plan: free
+    region: virginia            # match Neon + Qdrant (us-east-1) for low latency
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    # Free tier has no separate pre-deploy step, so run migrations at startup
+    # (alembic upgrade head is idempotent) before launching uvicorn on $PORT.
+    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      # --- non-secret config (committed) ---
+      - key: SOURCEBOUND_ENVIRONMENT
+        value: production
+      - key: LLM_PROVIDER
+        value: vertex
+      - key: LLM_MODEL
+        value: gemini-3.5-flash
+      - key: VERTEX_REGION
+        value: global
+      - key: SOURCEBOUND_EMBEDDING_PROVIDER
+        value: vertex
+      - key: SOURCEBOUND_RERANKER_MODEL
+        value: Xenova/ms-marco-MiniLM-L-6-v2     # fits Render's 512 MB
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/gcp-sa.json
+      # --- secrets / per-deploy values: paste in the Render dashboard ---
+      - key: JWT_SECRET                 # openssl rand -hex 32
+        sync: false
+      - key: DATABASE_URL               # Neon, postgresql+asyncpg://...
+        sync: false
+      - key: QDRANT_URL                 # https://...cloud.qdrant.io:6333
+        sync: false
+      - key: SOURCEBOUND_QDRANT_API_KEY
+        sync: false
+      - key: REDIS_URL                  # Upstash rediss://...
+        sync: false
+      - key: VERTEX_PROJECT_ID          # your GCP project id
+        sync: false
+      - key: SOURCEBOUND_CORS_ORIGINS   # set to your Vercel URL after step 4
+        sync: false

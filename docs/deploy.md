@@ -93,13 +93,25 @@ For each, sign up, create the resource, and copy the connection string somewhere
 The repo is already deploy-ready: the Dockerfile honors `$PORT`, the worker isn't
 required, and embeddings default to local BGE.
 
+> **Shortcut:** the repo ships a `render.yaml` Blueprint. Render → **New →
+> Blueprint** → pick this repo and it pre-creates the service with all the settings
+> below; you just fill the secret values and add the `gcp-sa.json` secret file. The
+> manual steps below are the alternative.
+
 1. render.com → sign up → **New → Web Service** → connect your GitHub repo
    `AdityaChaudhari901/Sourcebound`.
 2. Settings:
    - **Root Directory:** `backend`
    - **Runtime:** Docker (it finds `backend/Dockerfile`)
    - **Instance type:** Free
-   - **Pre-Deploy Command:** `alembic upgrade head`  (runs migrations each deploy)
+   - **Region:** Virginia (US East) — matches Neon + Qdrant
+   - **Health Check Path:** `/health`
+   - **Docker Command** (override the default): migrations run at **startup**, because
+     Render's free tier has **no separate pre-deploy step**:
+     ```
+     sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+     ```
+     (`alembic upgrade head` is idempotent — safe to run on every start.)
 3. **Environment variables** 🔐 (Render dashboard → Environment). Paste the values you
    saved above plus these. **Generate `JWT_SECRET` yourself** with
    `openssl rand -hex 32` — never reuse a default:
