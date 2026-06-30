@@ -7,6 +7,7 @@ logic lives here.
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
@@ -32,6 +33,26 @@ from app.database.session import dispose_engine
 logger = get_logger(__name__)
 
 
+def _warmup() -> None:
+    """Pre-load embedding/rerank models and warm the LLM/embedding clients so the
+    first real query isn't a cold start (model downloads + first Vertex auth ~12s).
+    Best-effort: never blocks or fails startup.
+    """
+    try:
+        from app.rag.providers.embeddings import (
+            get_embedding_provider,
+            get_sparse_embedding_provider,
+        )
+        from app.rag.reranking import get_reranker
+
+        get_embedding_provider().embed_query("warmup")  # Vertex client + auth
+        get_sparse_embedding_provider().embed_query("warmup")  # BM25 model
+        get_reranker()  # cross-encoder model (no-op if rerank disabled)
+        logger.info("warmup_complete")
+    except Exception as exc:  # noqa: BLE001  (warmup must never crash the app)
+        logger.warning("warmup_failed", error=str(exc))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(
@@ -41,7 +62,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         environment=settings.environment,
     )
     configure_langfuse()  # init tracing (no-op if unconfigured); verifies connectivity
-    # Other resource init (db pool, redis, qdrant) is wired in later slices.
+    # Warm models/clients off the event loop so startup (and /health) isn't blocked.
+    app.state.warmup_task = asyncio.create_task(asyncio.to_thread(_warmup))
     yield
     shutdown_langfuse()  # flush buffered traces before exit
     await close_redis()  # close the app-side Redis client
