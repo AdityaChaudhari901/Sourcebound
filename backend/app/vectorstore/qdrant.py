@@ -21,8 +21,11 @@ SPARSE_VECTOR = "sparse"
 
 @lru_cache(maxsize=1)
 def get_qdrant_client() -> QdrantClient:
-    api_key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
-    return QdrantClient(url=settings.qdrant_url, api_key=api_key)
+    # Strip stray whitespace a pasted env var may carry: a leading space breaks URL
+    # scheme parsing and surfaces as a DNS error ("Name or service not known").
+    url = settings.qdrant_url.strip()
+    api_key = settings.qdrant_api_key.get_secret_value().strip() if settings.qdrant_api_key else None
+    return QdrantClient(url=url, api_key=api_key or None)
 
 
 def ensure_collection(client: QdrantClient, name: str, dense_size: int) -> None:
