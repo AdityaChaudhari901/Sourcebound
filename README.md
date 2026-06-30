@@ -1,5 +1,9 @@
 # Sourcebound
 
+[**▶ Live demo**](https://sourcebound.vercel.app) &nbsp;·&nbsp; one click, no sign-up — ask a question, get a cited, grounded answer.
+
+> Hosted on free tiers, so the API may take ~30–50s to wake on the first request.
+
 **Ask questions against your internal docs and code, and get answers with citations
 back to the source — every claim traceable, or it doesn't ship.**
 
