@@ -129,8 +129,16 @@ class Settings(BaseSettings):
         return bool(self.web_search_enabled and self.tavily_api_key)
 
     # --- LLM (swappable provider interface; default free local Ollama) ---
-    llm_provider: str = "ollama"   # ollama | groq | gemini | openai | vertex
-    llm_model: str | None = None   # None -> provider default
+    # Accept the documented unprefixed names (LLM_PROVIDER/LLM_MODEL) as well as the
+    # SOURCEBOUND_-prefixed ones, matching the other provider fields' aliasing.
+    llm_provider: str = Field(  # ollama | groq | gemini | openai | vertex
+        default="ollama",
+        validation_alias=AliasChoices("LLM_PROVIDER", "SOURCEBOUND_LLM_PROVIDER"),
+    )
+    llm_model: str | None = Field(  # None -> provider default
+        default=None,
+        validation_alias=AliasChoices("LLM_MODEL", "SOURCEBOUND_LLM_MODEL"),
+    )
     llm_temperature: float = 0.0   # deterministic; low temp curbs fabrication
     llm_base_url: str | None = None  # override the provider's default base URL
     ollama_base_url: str = "http://localhost:11434/v1"
