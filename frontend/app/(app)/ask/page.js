@@ -14,9 +14,9 @@ import { AnswerBadges } from "@/components/answer-badges";
 
 const SAMPLE_QUESTIONS = [
   "How are deploys rolled back?",
-  "How does the API gateway handle authentication?",
-  "How often must payment secrets be rotated?",
-  "What's required to onboard a new service?",
+  "How does the API gateway authenticate requests?",
+  "How often must secrets be rotated?",
+  "What happens if an on-call page is not acknowledged?",
 ];
 
 export default function AskPage() {
