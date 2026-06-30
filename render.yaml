@@ -35,12 +35,11 @@ services:
         value: global
       - key: SOURCEBOUND_EMBEDDING_PROVIDER
         value: vertex
-      # Cross-encoder rerank loads another ~160 MB ONNX model at query time
-      # (app + BM25 + Vertex client ~220 MB -> ~380 MB of 512 MB), too tight under
-      # query-time inference on the free instance. Keep off here; grade+verify still
-      # ground answers. Re-enable on a larger instance for the precision boost.
+      # Cross-encoder rerank: ~160 MB ONNX model at query time -> ~380 MB of 512 MB.
+      # Enabled per request; tight on the free instance — if queries OOM (502), set
+      # back to "false" or move to a larger (1 GB) instance.
       - key: SOURCEBOUND_RERANK_ENABLED
-        value: "false"
+        value: "true"
       # Hybrid = dense (Vertex) + BM25 sparse for lexical recall. BM25 adds only
       # ~6 MB, so it fits 512 MB fine.
       - key: SOURCEBOUND_RETRIEVER_MODE
@@ -50,6 +49,10 @@ services:
       # Web-search fallback (Tavily) when local retrieval is weak; TAVILY_API_KEY is
       # a secret set in the dashboard.
       - key: WEB_SEARCH_ENABLED
+        value: "true"
+      # Langfuse per-node tracing; keys are secrets set in the dashboard. No-op
+      # until both keys are present. Set LANGFUSE_HOST if not on the EU cloud.
+      - key: LANGFUSE_ENABLED
         value: "true"
       - key: GOOGLE_APPLICATION_CREDENTIALS
         value: /etc/secrets/gcp-sa.json
@@ -69,4 +72,8 @@ services:
       - key: SOURCEBOUND_CORS_ORIGINS   # set to your Vercel URL after step 4
         sync: false
       - key: TAVILY_API_KEY             # web-search fallback; paste in dashboard
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY        # pk-lf-...; paste in dashboard
+        sync: false
+      - key: LANGFUSE_SECRET_KEY        # sk-lf-...; paste in dashboard
         sync: false
