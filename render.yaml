@@ -41,6 +41,12 @@ services:
       # larger instance, set this true to re-enable the reranker below.
       - key: SOURCEBOUND_RERANK_ENABLED
         value: "false"
+      # Dense-only retrieval on the free tier: the BM25 sparse path runs onnxruntime,
+      # which allocates memory arenas sized to the host CPU count and crashes the
+      # 512 MB worker (502). Dense uses Vertex embeddings + Qdrant only (no local
+      # ONNX). Re-enable "hybrid" on a larger instance for BM25 lexical recall.
+      - key: SOURCEBOUND_RETRIEVER_MODE
+        value: dense
       - key: SOURCEBOUND_RERANKER_MODEL
         value: Xenova/ms-marco-MiniLM-L-6-v2     # used only when rerank is enabled
       - key: GOOGLE_APPLICATION_CREDENTIALS
