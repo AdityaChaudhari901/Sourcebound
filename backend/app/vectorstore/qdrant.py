@@ -24,7 +24,11 @@ def get_qdrant_client() -> QdrantClient:
     # Strip stray whitespace a pasted env var may carry: a leading space breaks URL
     # scheme parsing and surfaces as a DNS error ("Name or service not known").
     url = settings.qdrant_url.strip()
-    api_key = settings.qdrant_api_key.get_secret_value().strip() if settings.qdrant_api_key else None
+    api_key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
+    # A Qdrant key is a JWT (no whitespace), so drop ANY whitespace — including an
+    # internal line-break a wrapped paste can introduce, which yields 403 Forbidden.
+    if api_key:
+        api_key = "".join(api_key.split())
     return QdrantClient(url=url, api_key=api_key or None)
 
 
