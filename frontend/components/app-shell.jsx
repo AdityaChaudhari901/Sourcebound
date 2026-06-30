@@ -27,8 +27,6 @@ const NAV_ITEMS = [
   { label: "Settings", code: "cfg", icon: Settings2, href: "/settings" },
 ];
 
-const ENV = process.env.NEXT_PUBLIC_ENV ?? "local";
-const VERSION = "0.1.0";
 
 export function AppShell({ children }) {
   const pathname = usePathname();
@@ -142,16 +140,6 @@ export function AppShell({ children }) {
           </button>
         </div>
 
-        <div className="border-border text-muted-foreground border-t px-5 py-3 font-mono text-[11px] leading-5">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground/60">env</span>
-            <span className="text-foreground/80">{ENV}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground/60">ver</span>
-            <span className="text-foreground/80">{VERSION}</span>
-          </div>
-        </div>
       </aside>
 
       {/* Main column */}
@@ -177,9 +165,6 @@ export function AppShell({ children }) {
               / workspace
             </span>
           </div>
-          <span className="text-muted-foreground/60 shrink-0 font-mono text-[11px]">
-            sourcebound · {ENV}
-          </span>
         </header>
         <main className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">{children}</main>
       </div>
