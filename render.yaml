@@ -35,8 +35,14 @@ services:
         value: global
       - key: SOURCEBOUND_EMBEDDING_PROVIDER
         value: vertex
+      # Render's free 512 MB can't also load a cross-encoder ONNX model at query
+      # time (app + BM25 + Vertex client already ~220 MB). Disable second-stage
+      # rerank here; corrective-RAG grade+verify still keep answers grounded. On a
+      # larger instance, set this true to re-enable the reranker below.
+      - key: SOURCEBOUND_RERANK_ENABLED
+        value: "false"
       - key: SOURCEBOUND_RERANKER_MODEL
-        value: Xenova/ms-marco-MiniLM-L-6-v2     # fits Render's 512 MB
+        value: Xenova/ms-marco-MiniLM-L-6-v2     # used only when rerank is enabled
       - key: GOOGLE_APPLICATION_CREDENTIALS
         value: /etc/secrets/gcp-sa.json
       # --- secrets / per-deploy values: paste in the Render dashboard ---
