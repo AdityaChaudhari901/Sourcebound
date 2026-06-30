@@ -12,6 +12,13 @@ import { FeedbackButtons } from "@/components/feedback-buttons";
 import { Answer } from "@/components/answer";
 import { AnswerBadges } from "@/components/answer-badges";
 
+const SAMPLE_QUESTIONS = [
+  "How are deploys rolled back?",
+  "How does the API gateway handle authentication?",
+  "How often must payment secrets be rotated?",
+  "What's required to onboard a new service?",
+];
+
 export default function AskPage() {
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState([]); // {role, content, citations?, messageId?}
@@ -27,12 +34,9 @@ export default function AskPage() {
     setError(null);
   };
 
-  const submit = async (event) => {
-    event.preventDefault();
-    const q = question.trim();
+  const runQuery = async (q) => {
     if (!q || streaming) return;
 
-    setQuestion("");
     setError(null);
     setTurns((t) => [...t, { role: "user", content: q }]);
     setStreamingAnswer("");
@@ -74,6 +78,14 @@ export default function AskPage() {
     }
   };
 
+  const submit = (event) => {
+    event.preventDefault();
+    const q = question.trim();
+    if (!q || streaming) return;
+    setQuestion("");
+    runQuery(q);
+  };
+
   const empty = turns.length === 0 && !streaming;
 
   return (
@@ -81,11 +93,30 @@ export default function AskPage() {
       {/* Thread */}
       <div className="flex-1 space-y-5 overflow-auto pb-4">
         {empty && (
-          <p className="text-muted-foreground/60 max-w-md text-sm leading-relaxed">
-            Ask a question about your sources. Answers stream in, cite their sources, and
-            follow-ups keep the thread&apos;s context. If nothing matches, you&apos;ll be told —
-            not guessed at.
-          </p>
+          <div className="space-y-4">
+            <p className="text-muted-foreground/60 max-w-md text-sm leading-relaxed">
+              Ask a question about your sources. Answers stream in, cite their sources, and
+              follow-ups keep the thread&apos;s context. If nothing matches, you&apos;ll be told —
+              not guessed at.
+            </p>
+            <div className="space-y-2">
+              <p className="text-muted-foreground/50 font-mono text-[10px] uppercase tracking-[0.18em]">
+                Try one
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SAMPLE_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => runQuery(q)}
+                    className="border-border text-muted-foreground hover:border-primary/50 hover:text-foreground rounded-full border px-3 py-1.5 text-xs transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {turns.map((turn, i) =>
