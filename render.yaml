@@ -54,6 +54,8 @@ services:
       # until both keys are present. Set LANGFUSE_HOST if not on the EU cloud.
       - key: LANGFUSE_ENABLED
         value: "true"
+      - key: LANGFUSE_BASE_URL          # US region (default is EU)
+        value: https://us.cloud.langfuse.com
       - key: GOOGLE_APPLICATION_CREDENTIALS
         value: /etc/secrets/gcp-sa.json
       # --- secrets / per-deploy values: paste in the Render dashboard ---
