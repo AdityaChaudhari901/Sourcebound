@@ -46,6 +46,9 @@ services:
         value: hybrid
       - key: SOURCEBOUND_RERANKER_MODEL
         value: Xenova/ms-marco-MiniLM-L-6-v2     # used only when rerank is enabled
+      # Cache first-turn answers 1h (static demo corpus): instant repeats, no LLM cost.
+      - key: ANSWER_CACHE_SECONDS
+        value: "3600"
       # Web-search fallback (Tavily) when local retrieval is weak; TAVILY_API_KEY is
       # a secret set in the dashboard.
       - key: WEB_SEARCH_ENABLED
