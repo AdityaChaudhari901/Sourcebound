@@ -11,6 +11,7 @@ import { CitationList } from "@/components/citation-list";
 import { FeedbackButtons } from "@/components/feedback-buttons";
 import { Answer } from "@/components/answer";
 import { AnswerBadges } from "@/components/answer-badges";
+import { useAuth, isDemoUser } from "@/lib/auth";
 
 const SAMPLE_QUESTIONS = [
   "How are deploys rolled back?",
@@ -26,6 +27,7 @@ export default function AskPage() {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState(null);
   const conversationId = useRef(null);
+  const { user } = useAuth();
 
   const newConversation = () => {
     conversationId.current = null;
@@ -99,23 +101,25 @@ export default function AskPage() {
               follow-ups keep the thread&apos;s context. If nothing matches, you&apos;ll be told —
               not guessed at.
             </p>
-            <div className="space-y-2">
-              <p className="text-muted-foreground/50 font-mono text-[10px] uppercase tracking-[0.18em]">
-                Try one
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {SAMPLE_QUESTIONS.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => runQuery(q)}
-                    className="border-border text-muted-foreground hover:border-primary/50 hover:text-foreground rounded-full border px-3 py-1.5 text-xs transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
+            {isDemoUser(user) && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground/50 font-mono text-[10px] uppercase tracking-[0.18em]">
+                  Try one
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {SAMPLE_QUESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => runQuery(q)}
+                      className="border-border text-muted-foreground hover:border-primary/50 hover:text-foreground rounded-full border px-3 py-1.5 text-xs transition-colors"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
