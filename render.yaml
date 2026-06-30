@@ -35,20 +35,22 @@ services:
         value: global
       - key: SOURCEBOUND_EMBEDDING_PROVIDER
         value: vertex
-      # Render's free 512 MB can't also load a cross-encoder ONNX model at query
-      # time (app + BM25 + Vertex client already ~220 MB). Disable second-stage
-      # rerank here; corrective-RAG grade+verify still keep answers grounded. On a
-      # larger instance, set this true to re-enable the reranker below.
+      # Cross-encoder rerank loads another ~160 MB ONNX model at query time
+      # (app + BM25 + Vertex client ~220 MB -> ~380 MB of 512 MB), too tight under
+      # query-time inference on the free instance. Keep off here; grade+verify still
+      # ground answers. Re-enable on a larger instance for the precision boost.
       - key: SOURCEBOUND_RERANK_ENABLED
         value: "false"
-      # Dense-only retrieval on the free tier: the BM25 sparse path runs onnxruntime,
-      # which allocates memory arenas sized to the host CPU count and crashes the
-      # 512 MB worker (502). Dense uses Vertex embeddings + Qdrant only (no local
-      # ONNX). Re-enable "hybrid" on a larger instance for BM25 lexical recall.
+      # Hybrid = dense (Vertex) + BM25 sparse for lexical recall. BM25 adds only
+      # ~6 MB, so it fits 512 MB fine.
       - key: SOURCEBOUND_RETRIEVER_MODE
-        value: dense
+        value: hybrid
       - key: SOURCEBOUND_RERANKER_MODEL
         value: Xenova/ms-marco-MiniLM-L-6-v2     # used only when rerank is enabled
+      # Web-search fallback (Tavily) when local retrieval is weak; TAVILY_API_KEY is
+      # a secret set in the dashboard.
+      - key: WEB_SEARCH_ENABLED
+        value: "true"
       - key: GOOGLE_APPLICATION_CREDENTIALS
         value: /etc/secrets/gcp-sa.json
       # --- secrets / per-deploy values: paste in the Render dashboard ---
@@ -65,4 +67,6 @@ services:
       - key: VERTEX_PROJECT_ID          # your GCP project id
         sync: false
       - key: SOURCEBOUND_CORS_ORIGINS   # set to your Vercel URL after step 4
+        sync: false
+      - key: TAVILY_API_KEY             # web-search fallback; paste in dashboard
         sync: false
