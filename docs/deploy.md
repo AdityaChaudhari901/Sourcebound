@@ -124,13 +124,14 @@ required, and embeddings default to local BGE.
    LLM_MODEL=gemini-2.0-flash
    GOOGLE_API_KEY=<your AI Studio key>
    SOURCEBOUND_EMBEDDING_PROVIDER=fastembed
-   SOURCEBOUND_RERANKER_MODEL=Xenova/ms-marco-MiniLM-L-6-v2
+   SOURCEBOUND_RERANK_ENABLED=false
    SOURCEBOUND_CORS_ORIGINS=https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app
    ```
-   - Use the **lightweight MiniLM reranker** (above) — the production `bge-reranker-base`
-     is ~1 GB and won't fit Render's 512 MB free instance. If the service still OOMs,
-     set `SOURCEBOUND_RERANK_ENABLED=false` (the corrective grade + rewrite + generate
-     still work without rerank).
+   - **Disable the cross-encoder reranker on the 512 MB free instance**
+     (`SOURCEBOUND_RERANK_ENABLED=false`). App + BM25 + the embedding client already
+     use ~220 MB; loading a cross-encoder ONNX model at query time tips it over and
+     the query 500s. The corrective-RAG grade + verify still keep answers grounded.
+     Re-enable (and set `SOURCEBOUND_RERANKER_MODEL`) on a larger instance.
    - Leave `SOURCEBOUND_CORS_ORIGINS` as a placeholder for now; you'll set the real
      Vercel URL in Step 5.
 4. **Create Web Service.** First build ~5–8 min. When live, note the URL, e.g.
@@ -178,17 +179,25 @@ No code change is needed: the app authenticates to Vertex through
 
 ---
 
-## Step 3 — Seed the public demo corpus
+## Step 3 — Seed the public demo corpus (out-of-band)
 
-The demo is self-seeding: the first call to `POST /auth/demo` provisions the shared
-read-only workspace and ingests the 6 sample docs (embedded locally with BGE). Warm
-it once after deploy so the first real visitor doesn't wait:
+**Pre-seed the corpus once with a script — do not rely on in-request seeding.**
+`POST /auth/demo` *can* seed on first call, but with a **hosted embedder** (Vertex/
+Gemini API) it embeds every chunk via a serial network call (~16s for one doc, ~1 min
+for all six), which exceeds the request lifetime and leaves a half-seeded corpus.
+Seed it ahead of time instead, pointing the script at your deployed datastores:
 
 ```bash
-curl -X POST https://<your-api>/api/v1/auth/demo
+cd backend
+DATABASE_URL="postgresql+asyncpg://...neon..." \
+QDRANT_URL="https://...:6333" SOURCEBOUND_QDRANT_API_KEY="..." \
+SOURCEBOUND_EMBEDDING_PROVIDER=vertex VERTEX_PROJECT_ID=... VERTEX_REGION=global \
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-sa.json \
+python scripts/seed_demo.py        # idempotent: prints "READY documents: 6"
 ```
-(That returns a token and triggers seeding — takes a few seconds on first call.)
-The demo is **read-only**: ingest/reingest return `403`, so visitors can't pollute it.
+(For the free Gemini API + BGE variant, swap the embedding env accordingly.) After
+this, `POST /auth/demo` just issues a token against the ready corpus. The demo is
+**read-only**: ingest/reingest return `403`, so visitors can't pollute it.
 
 ---
 
