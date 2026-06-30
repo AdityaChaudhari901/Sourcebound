@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     # --- Corrective loop ---
     max_query_retries: int = 2  # max query rewrites before degrading gracefully
 
+    # Cache first-turn answers in Redis for this many seconds (0 = off). Keyed by
+    # (tenant, question); skipped for follow-ups. Great for a static demo corpus.
+    answer_cache_seconds: int = Field(
+        default=0,
+        validation_alias=AliasChoices("ANSWER_CACHE_SECONDS", "SOURCEBOUND_ANSWER_CACHE_SECONDS"),
+    )
+
     # --- Conversation memory (bounded so context can't grow unboundedly) ---
     history_max_messages: int = 6      # at most the last N messages carried into the prompt
     history_char_budget: int = 4000    # ...and never more than this many characters total
